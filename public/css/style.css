@@ -308,7 +308,25 @@ tr:hover td { background: rgba(255, 255, 255, .02); }
 .att-name { font-weight: 600; font-size: 14px; }
 .att-dept { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
-.status-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+.status-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+@media(max-width: 768px) {
+  .status-btn {
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+}
+@media(max-width: 768px) {
+  th, td {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
+
 .status-btn {
   padding: 6px 11px; border-radius: 6px; border: 1px solid var(--card-border);
   background: transparent; color: var(--text-muted);
@@ -399,10 +417,94 @@ tr:hover td { background: rgba(255, 255, 255, .02); }
 @media(max-width: 900px) {
   .dashboard-grid { grid-template-columns: 1fr; }
 }
-@media(max-width: 700px) {
-  .topbar, .tabs, .main { padding-left: 16px; padding-right: 16px; }
-  .att-row { grid-template-columns: 1fr; }
-  .att-avatar { display: none; }
+@media(max-width: 768px) {
+  .stats-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media(max-width: 768px) {
+
+  /* Compact Topbar */
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .topbar-right {
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 8px;
+  }
+
+  /* Scrollable Tabs */
+  .tabs {
+    overflow-x: auto;
+    padding-bottom: 10px;
+  }
+
+  .tab-btn {
+    white-space: nowrap;
+    font-size: 13px;
+    padding: 8px 14px;
+  }
+
+  /* Stack section headers */
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  /* Forms full width */
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-group {
+    width: 100%;
+  }
+
+  /* Attendance rows stack */
+  .att-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .status-buttons {
+    justify-content: flex-start;
+  }
+
+  /* Staff table better scroll */
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  table {
+    min-width: 650px;
+  }
+
+  /* Monthly report scroll */
+  .month-table-wrap {
+    overflow-x: auto;
+  }
+
+  .month-table {
+    min-width: 900px;
+  }
+
+  /* Stat cards smaller */
+  .stat-value {
+    font-size: 24px;
+  }
+
+  /* Buttons tighter */
+  .btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
 }
 
 .holiday-item {
