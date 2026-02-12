@@ -3,7 +3,7 @@ const bcrypt  = require('bcrypt');
 const express = require('express');
 const path    = require('path');
 const db      = require('./db');
-/*
+
 
 const existingAdmin = db.getUserByUsername.get('admin');
 
@@ -13,7 +13,6 @@ if (!existingAdmin) {
   console.log('Admin created → admin / Samarraj@12');
 }
 
-*/
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
