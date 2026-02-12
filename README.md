@@ -1,125 +1,186 @@
-# Staff Attendance Manager — Setup Guide (Windows)
 
-Everything you need to get this running is below. Takes about 2 minutes.
+# 📊 Staff Attendance Manager
 
----
-
-## What you need
-
-- **Node.js** installed on your Windows PC. If you don't have it:
-  1. Go to **https://nodejs.org**
-  2. Click the big green **"Download Node.js"** button (the LTS version)
-  3. Run the installer — just click Next on every screen and finish
-
-That's it. No other software needed.
+A full-stack Staff Attendance Management System built with **Node.js, Express, and SQLite**.
+Designed to manage employee attendance, generate monthly reports, and provide real-time analytics through a clean admin dashboard.
 
 ---
 
-## First-time setup (do this once)
+## 🌐 Live Demo
 
-1. **Download and extract** this folder somewhere easy, like your Desktop or Documents.  
-   You should see this structure inside:
+🔗 [https://staff-attendance-manager.onrender.com](https://staff-attendance-manager.onrender.com)
 
-   ```
-   attendance-app/
-   ├── server.js
-   ├── db.js
-   ├── package.json
-   ├── public/
-   │   └── index.html
-   └── README.md          ← you're reading this
-   ```
-
-2. **Open Command Prompt** inside this folder:
-   - Right-click inside the `attendance-app` folder
-   - Click **"Open in Terminal"** (or on older Windows: open Command Prompt and `cd` to this folder)
-
-3. **Run this command** (copy-paste it):
-
-   ```
-   npm install
-   ```
-
-   This downloads the small set of dependencies (Express, SQLite driver). Takes 10–20 seconds.  
-   You'll see a new `node_modules` folder appear — that's normal, ignore it.
-
----
-
-## How to start the app
-
-Every time you want to use the attendance app, do this:
-
-1. Open a **Command Prompt** inside the `attendance-app` folder.
-
-2. Type and press Enter:
-
-   ```
-   npm start
-   ```
-
-3. You'll see this in the terminal:
-
-   ```
-   ─────────────────────────────────────────
-     Staff Attendance Manager
-     Running on: http://localhost:3000
-     Database:   attendance.db  (same folder)
-   ─────────────────────────────────────────
-   ```
-
-4. Open your browser and go to:
-
-   ```
-   http://localhost:3000
-   ```
-
-   The app is live. Done!
-
----
-
-## How to stop the app
-
-In the Command Prompt window where the server is running, press:
+### 🔐 Demo Login
 
 ```
-Ctrl + C
+Username: admin
+Password: Samarraj@12
 ```
-
-That's it. The server stops. You can close the terminal.
 
 ---
 
-## Where is my data stored?
+## 🚀 Features
 
-All your attendance and staff data is saved in a single file:
+### 🔑 Authentication & Security
 
-```
-attendance-app/
-└── attendance.db       ← SQLite database (auto-created on first run)
-```
+* Session-based authentication
+* Secure password hashing using **bcrypt**
+* Role-based access (Admin / Staff)
+* Protected API routes
 
-- This file is created automatically the first time you run `npm start`.
-- It lives on **your computer only** — nothing goes to the internet.
-- You can **back it up** by simply copying this `.db` file somewhere safe.
-- If you ever delete it, the app starts fresh with an empty database.
+### 👥 Staff Management
+
+* Add / Edit / Delete staff
+* Department & position management
+* Search & filter functionality
+
+### 📅 Attendance System
+
+* Mark: Present / Absent / Half Day
+* Holiday management
+* Weekend detection
+* Real-time status tracking
+
+### 📊 Dashboard Analytics
+
+* Live attendance summary
+* Pie chart visualization (Chart.js)
+* Staff status overview
+
+### 📈 Monthly Reports
+
+* Department-wise filtering
+* Excel export (XLSX)
+* PDF export (jsPDF + AutoTable)
+* Attendance legend system
 
 ---
 
-## Quick reference
+## 🛠 Tech Stack
 
-| What                        | How                                      |
-|-----------------------------|------------------------------------------|
-| Install (first time only)   | `npm install`                            |
-| Start the server            | `npm start`                              |
-| Open the app                | Browser → `http://localhost:3000`        |
-| Stop the server             | `Ctrl + C` in the terminal               |
-| Back up your data           | Copy `attendance.db` somewhere safe      |
-| Reset / start fresh         | Delete `attendance.db`, then `npm start` |
+### Backend
+
+* Node.js
+* Express.js
+* better-sqlite3
+* express-session
+* bcrypt
+* uuid
+
+### Frontend
+
+* Vanilla JavaScript
+* Chart.js
+* XLSX
+* jsPDF
+
+### Deployment
+
+* Render (Web Service)
+* GitHub (Version Control)
 
 ---
 
-## Something not working?
+## 🏗 Architecture Overview
 
-- **"npm: command not found"** → Node.js is not installed. See the install step above.
-- **"Port 3000 is already in use"** → Another app is using port 3000. Close it, or open `server.js` in a text editor and change `3000` to another number like `3001`. Then use `http://localhost:3001` in your browser.
-- **App shows "No connection"** → The server isn't running. Go back to the terminal and run `npm start`.
+```
+staff-attendance-manager/
+│
+├── server.js            # Express server & API routes
+├── db.js                # SQLite database layer
+├── package.json
+├── public/
+│   ├── index.html       # Main dashboard
+│   ├── login.html       # Login page
+│   ├── css/style.css
+│   └── js/app.js
+└── .gitignore
+```
+
+* Backend handles authentication, database queries, and report generation.
+* Frontend communicates via REST API.
+* SQLite used for lightweight persistent storage.
+* Session middleware protects private routes.
+
+---
+
+## ⚙️ Local Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/samarrajx/staff-attendance-manager.git
+cd staff-attendance-manager
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the server:
+
+```bash
+npm start
+```
+
+Visit:
+
+```
+http://localhost:3000
+```
+
+---
+
+## 🔐 Default Admin (Local)
+
+If running locally for the first time:
+
+```
+Username: admin
+Password: Samarraj@12
+```
+
+---
+
+## 📌 Key Engineering Decisions
+
+* Used `better-sqlite3` for synchronous high-performance SQLite operations.
+* Session-based authentication for simplicity and security.
+* Modular database abstraction in `db.js`.
+* Export functionality implemented without heavy frameworks.
+* Clean dark UI design with responsive layout.
+
+---
+
+## 🚀 Future Improvements
+
+* PostgreSQL migration for production scalability
+* Redis session store
+* JWT-based authentication
+* Role-specific dashboards
+* Audit logs & attendance history tracking
+* Persistent storage setup for cloud environments
+
+---
+
+## 👨‍💻 Author
+
+**Samar Raj**
+Full-Stack Developer | Backend Systems | Data Automation
+
+GitHub: [https://github.com/samarrajx](https://github.com/samarrajx)
+
+---
+
+# 💡 Project Purpose
+
+This project demonstrates:
+
+* Full-stack system design
+* Authentication & authorization
+* Database schema design
+* Report generation
+* Deployment to cloud environment
+* Production-ready project structuring
