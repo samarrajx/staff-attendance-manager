@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Staff Attendance - Login</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/x-icon" href="/images-favicon.ico">
+
+
+  <style>
+    body {
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: inherit;
+    }
+
+    .login-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      padding: 40px;
+      width: 360px;
+      border-radius: var(--radius);
+      box-shadow: 0 0 25px var(--accent-glow);
+      text-align: center;
+    }
+
+    .login-card h2 {
+      margin-bottom: 25px;
+      font-weight: 600;
+    }
+
+    .login-card input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: var(--radius);
+      border: 1px solid var(--card-border);
+      background: #11131a;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .login-card input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .login-card button {
+      width: 100%;
+      padding: 12px;
+      border-radius: var(--radius);
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .login-card button:hover {
+      opacity: 0.9;
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    .error {
+      margin-top: 12px;
+      color: var(--red);
+      font-size: 13px;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="login-card">
+    <h2>Admin Login</h2>
+    <div class="subtitle">Staff Attendance Manager</div>
+
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
+
+    <button onclick="login()">Login</button>
+
+    <div id="error" class="error"></div>
+  </div>
+
+<script>
+async function login() {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const errorBox = document.getElementById('error');
+
+  errorBox.innerText = "";
+
+  if (!username || !password) {
+    errorBox.innerText = "Please enter username and password";
+    return;
+  }
+
+  const res = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+
+  const data = await res.json();
+
+  if (data.success) {
+    window.location.href = '/';
+  } else {
+    errorBox.innerText = data.error || "Login failed";
+  }
+}
+</script>
+
+</body>
+</html>

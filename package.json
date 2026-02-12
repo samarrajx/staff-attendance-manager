@@ -1,0 +1,17 @@
+{
+  "name": "staff-attendance-manager",
+  "version": "1.0.0",
+  "description": "Local Staff Attendance Manager with SQLite backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^9.4.3",
+    "express": "^4.18.2",
+    "express-session": "^1.19.0",
+    "uuid": "^9.0.0"
+  }
+}
