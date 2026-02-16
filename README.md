@@ -14,7 +14,7 @@ Designed to manage employee attendance, generate monthly reports, and provide re
 
 ```
 Username: admin
-Password: Samarraj@12
+Password: admin123
 ```
 
 ---
