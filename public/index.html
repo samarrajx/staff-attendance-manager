@@ -42,6 +42,8 @@
   <button class="tab-btn" onclick="switchTab('staff')">Staff</button>
   <button class="tab-btn" onclick="switchTab('holiday')">Holiday</button>
   <button class="tab-btn" onclick="switchTab('report')">Monthly Report</button>
+  <button class="tab-btn" onclick="switchTab('overview')">Monthly Overview</button>
+
 </div>
 
 <div class="main">
@@ -223,22 +225,114 @@
       </div>
     </div>
   </div>
-</div>
+  <div class="page" id="page-overview">
 
-<div class="modal-overlay" id="staffModal">
-  <div class="modal">
-    <h3 id="staffModalTitle">Add New Staff</h3>
-    <input type="hidden" id="editStaffId"/>
-    <div class="form-group" style="margin-bottom:12px;"><label>Full Name</label><input type="text" id="staffName" placeholder="e.g. Rahul Sharma"/></div>
-    <div class="form-group" style="margin-bottom:12px;"><label>Staff ID</label><input type="text" id="staffId" placeholder="e.g. EMP001"/></div>
-    <div class="form-group" style="margin-bottom:12px;"><label>Department</label><input type="text" id="staffDept" placeholder="e.g. Sales" list="deptList"/><datalist id="deptList"></datalist></div>
-    <div class="form-group" style="margin-bottom:12px;"><label>Position</label><input type="text" id="staffPosition" placeholder="e.g. Manager"/></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeStaffModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveStaff()">Save Staff</button>
+  <div class="section-header">
+    <div class="section-title">
+      Monthly <span>Overview</span>
     </div>
   </div>
+
+  <!-- FILTERS -->
+  <div class="card" style="margin-bottom:18px;">
+    <div class="form-row">
+
+      <div class="form-group" style="max-width:170px;">
+        <label>Month</label>
+        <select id="overviewMonth" onchange="renderMonthlyOverview()"></select>
+      </div>
+
+      <div class="form-group" style="max-width:130px;">
+        <label>Year</label>
+        <select id="overviewYear" onchange="renderMonthlyOverview()"></select>
+      </div>
+
+      <div class="form-group" style="max-width:210px;">
+        <label>Department</label>
+        <select id="overviewDeptFilter" onchange="renderMonthlyOverview()">
+          <option value="All">All Departments</option>
+        </select>
+      </div>
+
+      <div class="download-row">
+        <button class="btn btn-primary" onclick="downloadOverviewExcel()">
+          Excel
+        </button>
+        <button class="btn btn-outline" onclick="downloadOverviewPDF()">
+          PDF
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="monthlyOverviewContainer">
+
+    <div class="card" style="margin-bottom:20px;">
+
+  <div onclick="toggleOverviewGraph()"
+       style="
+         cursor:pointer;
+         display:flex;
+         justify-content:space-between;
+         align-items:center;
+         font-weight:600;
+         font-size:16px;
+       ">
+
+    <span>Monthly Graph</span>
+    <span id="overviewGraphIcon">▶</span>
+
+  </div>
+
+  <div id="overviewGraphContent" style="margin-top:15px; display:none;">
+
+    <div class="stats-row" id="overviewStats"></div>
+
+    <div class="overview-chart-wrapper">
+      <canvas id="overviewChart"></canvas>
+    </div>
+
+  </div>
+
 </div>
+
+
+    <div id="overviewTableSection">
+      <div id="overviewTitle"
+     style="
+       margin: 20px 0 10px 0;
+       font-size: 18px;
+       font-weight: 700;
+       text-align: center;
+       letter-spacing: 0.5px;
+     ">
+</div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Staff ID</th>
+                <th>Present</th>
+                <th>Absent</th>
+                <th>Half Day</th>
+                <th>Attendance %</th>
+              </tr>
+            </thead>
+            <tbody id="overviewTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
 
 <div class="toast" id="toast"></div>
 
@@ -267,7 +361,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 <script src="/js/app.js"></script>
 
 </body>

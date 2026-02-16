@@ -1,3 +1,4 @@
+console.log("APP.JS LOADED");
 // ═══════════════════════════════════════════════════════
 // STAFF ATTENDANCE MANAGER — CLIENT SIDE CONTROLLER
 // ═══════════════════════════════════════════════════════
@@ -243,36 +244,71 @@ function switchTab(name) {
     p.classList.remove('active');
   });
 
-  // Show selected page
+  // Show selected page FIRST
   const page = document.getElementById('page-' + name);
   if (page) page.classList.add('active');
 
-  // Load content dynamically
-  if (name === 'dashboard') renderDashboard();
-  if (name === 'mark')      renderMarkPage();
-  if (name === 'staff')     { populateDeptFilters(); renderStaffTable(); }
-  if (name === 'holiday')   loadHolidayList();
-  if (name === 'report')    { populateReportSelectors(); renderReport(); }
+  // Now run page-specific logic AFTER visible
+  if (name === 'dashboard') {
+    renderDashboard();
+  }
+
+  if (name === 'mark') {
+    renderMarkPage();
+  }
+
+  if (name === 'staff') {
+    populateDeptFilters();
+    renderStaffTable();
+  }
+
+  if (name === 'holiday') {
+    loadHolidayList();
+  }
+
+  if (name === 'report') {
+    populateReportSelectors();
+    renderReport();
+  }
+
+  if (name === 'overview') {
+  populateOverviewSelectors();
+  renderMonthlyOverview();
+}
+
 }
 
 
 // Populate department dropdowns dynamically based on existing staff data
-async function populateDeptFilters() {
-  const depts = await fetchDepts();
-  const optHtml = '<option value="All">All Departments</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
-  
-  ['markDeptFilter', 'staffDeptFilter', 'reportDeptFilter'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.innerHTML = optHtml;
+function populateDeptFilters() {
+
+  if (!staffList || staffList.length === 0) return;
+
+  const depts = [...new Set(staffList.map(s => s.dept).filter(Boolean))];
+
+  const ids = [
+    'markDeptFilter',
+    'staffDeptFilter',
+    'reportDeptFilter',
+    'overviewDeptFilter'
+  ];
+
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.innerHTML =
+        '<option value="All">All</option>' +
+        depts.map(d => `<option value="${d}">${d}</option>`).join('');
+    }
   });
-  
-  // Update datalist for Add Staff modal
-  document.getElementById('deptList').innerHTML = depts.map(d => `<option value="${d}">`).join('');
 }
 
 // ═══════════════════════════════════════════════════════
 // DASHBOARD LOGIC (NEW MODERN VERSION)
 // ═══════════════════════════════════════════════════════
 let pieChart = null;
+let overviewChart = null;
+
 
 async function renderDashboard() {
 await fetchStaff();
@@ -755,172 +791,985 @@ async function renderReport() {
 }
 
 // ═══════════════════════════════════════════════════════
-// EXCEL EXPORT
+// MONTHLY OVERVIEW PAGE
 // ═══════════════════════════════════════════════════════
 
-async function downloadExcel() {
-  const month = parseInt(document.getElementById('reportMonth').value);
-  const year  = parseInt(document.getElementById('reportYear').value);
-  const dept  = document.getElementById('reportDeptFilter').value;
-  const days  = getDaysInMonth(year, month);
+function populateOverviewSelectors() {
+  const now = new Date();
+
+  // Month dropdown
+  document.getElementById('overviewMonth').innerHTML =
+    MONTHS.map((m, i) =>
+      `<option value="${i}" ${i === now.getMonth() ? 'selected' : ''}>${m}</option>`
+    ).join('');
+
+  // Year dropdown
+  let yHtml = '';
+  for (let y = now.getFullYear() - 2; y <= now.getFullYear() + 1; y++) {
+    yHtml += `<option value="${y}" ${y === now.getFullYear() ? 'selected' : ''}>${y}</option>`;
+  }
+  document.getElementById('overviewYear').innerHTML = yHtml;
+
+  populateDeptFilters();
+}
+async function renderMonthlyOverview() {
+
+  console.log("OVERVIEW FUNCTION CALLED");
+
+  const monthSelect = document.getElementById('overviewMonth');
+  const yearSelect  = document.getElementById('overviewYear');
+  const deptSelect  = document.getElementById('overviewDeptFilter');
+
+  if (!monthSelect || !yearSelect || !deptSelect) {
+    console.log("Selectors not ready yet");
+    return;
+  }
+
+  const month = parseInt(monthSelect.value);
+  const year  = parseInt(yearSelect.value);
+  const dept  = deptSelect.value;
+
+  const monthName = MONTHS[month];
+const deptName = dept === 'All' ? '' : ` • ${dept}`;
+const titleEl = document.getElementById('overviewTitle');
+
+if (titleEl) {
+  titleEl.innerHTML = `
+    <span style="color:var(--text-muted); font-weight:500;">
+      ${monthName} ${year}${deptName}
+    </span>
+    <br>
+    <span style="color:var(--green); font-weight:700;">
+      Attendance Summary
+    </span>
+  `;
+}
+
+  if (isNaN(month) || isNaN(year)) {
+    console.log("Month/Year invalid");
+    return;
+  }
+
+  const days = getDaysInMonth(year, month);
+
+  await fetchStaff();
+  
+
+  await fetchHolidays();
+  const monthData = await fetchMonthAttendance(year, month);
+  console.log("Month Data:", monthData);
+
+
+  let filtered = dept === 'All'
+    ? staffList
+    : staffList.filter(s => s.dept === dept);
+
+  let staffSummary = [];
+
+  filtered.forEach((s) => {
+
+    let pC = 0, aC = 0, hC = 0;
+
+    for (let d = 1; d <= days; d++) {
+      const dateStr =
+        `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+      let st = (monthData[dateStr] || {})[s.id];
+
+      if (!st) {
+        if (holidayDates.includes(dateStr)) st = 'holiday';
+        else if (isWeekend(year, month, d)) st = 'weekend';
+      }
+
+      if (st === 'present') pC++;
+      if (st === 'absent')  aC++;
+      if (st === 'halfday') hC++;
+    }
+
+    const totalWork = pC + aC + hC;
+    const percent = totalWork
+      ? ((pC / totalWork) * 100).toFixed(1)
+      : 0;
+
+    staffSummary.push({
+      name: s.name,
+      id: s.id,
+      present: pC,
+      absent: aC,
+      half: hC,
+      percent
+    });
+  });
+
+
+  // Sort descending by Present
+  staffSummary.sort((a, b) => {
+    if (b.present !== a.present)
+      return b.present - a.present;
+    return a.absent - b.absent;
+  });
+  console.log("Staff Summary:", staffSummary);
+
+  const labels = [];
+  const presentData = [];
+  const absentData  = [];
+  const halfData    = [];
+
+  let totalPresent = 0;
+  let totalAbsent  = 0;
+  let totalHalf    = 0;
+
+  let tableHTML = '';
+
+  staffSummary.forEach((s, index) => {
+
+    labels.push(s.name);
+    presentData.push(s.present);
+    absentData.push(s.absent);
+    halfData.push(s.half);
+
+    totalPresent += s.present;
+    totalAbsent  += s.absent;
+    totalHalf    += s.half;
+
+    tableHTML += `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${s.name}</td>
+        <td>${s.id}</td>
+        <td style="color:var(--green);font-weight:600;">${s.present}</td>
+        <td style="color:var(--red);font-weight:600;">${s.absent}</td>
+        <td style="color:var(--amber);font-weight:600;">${s.half}</td>
+        <td>${s.percent}%</td>
+      </tr>
+    `;
+  });
+
+  document.getElementById('overviewTableBody').innerHTML = tableHTML;
+
+  document.getElementById('overviewStats').innerHTML = `
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--green)">${totalPresent}</div>
+      <div class="stat-label">Total Present</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--red)">${totalAbsent}</div>
+      <div class="stat-label">Total Absent</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--amber)">${totalHalf}</div>
+      <div class="stat-label">Total Half Day</div>
+    </div>
+  `;
+
+  renderOverviewChart(labels, presentData, absentData, halfData);
+}
+
+
+function renderOverviewChart(labels, presentData, absentData, halfData) {
+
+  const canvas = document.getElementById('overviewChart');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+
+  if (overviewChart) {
+    overviewChart.destroy();
+  }
+
+  overviewChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Present',
+          data: presentData,
+          backgroundColor: '#34d399'
+        },
+        {
+          label: 'Absent',
+          data: absentData,
+          backgroundColor: '#f87171'
+        },
+        {
+          label: 'Half Day',
+          data: halfData,
+          backgroundColor: '#fbbf24'
+        }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true }
+      },
+      plugins: {
+        legend: {
+          labels: { color: '#e2e4ea' }
+        },
+        datalabels: {
+          color: '#ffffff',
+          font: {
+            weight: 'bold',
+            size: 10
+          },
+          formatter: value => value > 0 ? value : ''
+        }
+      }
+    },
+    plugins: [ChartDataLabels]
+  });
+}
+function toggleOverviewGraph() {
+
+  const content = document.getElementById('overviewGraphContent');
+  const icon = document.getElementById('overviewGraphIcon');
+
+  if (!content) return;
+
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    icon.textContent = '▼';
+
+    // Force chart resize when opening
+    if (overviewChart) {
+      setTimeout(() => overviewChart.resize(), 50);
+    }
+
+  } else {
+    content.style.display = 'none';
+    icon.textContent = '▶';
+  }
+}
+
+
+
+
+// EXCEL EXPORT
+
+async function downloadOverviewExcel() {
+
+  const month = parseInt(document.getElementById('overviewMonth').value);
+  const year  = parseInt(document.getElementById('overviewYear').value);
+  const dept  = document.getElementById('overviewDeptFilter').value;
 
   await fetchStaff();
   await fetchHolidays();
   const monthData = await fetchMonthAttendance(year, month);
-  let filtered = dept === 'All' ? staffList : staffList.filter(s => s.dept === dept);
 
-  // Build Excel Headers
-  let header = ['#', 'Name', 'Staff ID', 'Department', 'Position'];
-  for (let d = 1; d <= days; d++) header.push(String(d));
-  header.push('Present', 'Absent', 'Half Days');
+  const days = getDaysInMonth(year, month);
 
-  let rows = [header];
-  filtered.forEach((s, i) => {
-    let row = [i + 1, s.name, s.id, s.dept || '', s.position || ''];
+  let filtered = dept === 'All'
+    ? staffList
+    : staffList.filter(s => s.dept === dept);
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Monthly Overview');
+
+  // ───────── TITLE ROW ─────────
+  sheet.mergeCells('A1:G1');
+  sheet.getCell('A1').value = `Monthly Attendance Overview - ${MONTHS[month]} ${year}`;
+  sheet.getCell('A1').font = { size: 14, bold: true };
+  sheet.getCell('A1').alignment = { horizontal: 'center' };
+
+  // ───────── HEADER ROW ─────────
+  const headerRowIndex = 3;
+
+  const headers = [
+    '#',
+    'Employee Name',
+    'Staff ID',
+    'Department',
+    'Present',
+    'Absent',
+    'Half Day',
+    'Attendance %'
+  ];
+
+  sheet.getRow(headerRowIndex).values = headers;
+
+  const headerRow = sheet.getRow(headerRowIndex);
+
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  headerRow.eachCell(cell => {
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1F4E78' } // Official dark blue
+    };
+    cell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+  });
+
+  // ───────── DATA ROWS ─────────
+  let rowIndex = headerRowIndex + 1;
+
+  filtered.forEach((s, index) => {
+
     let pC = 0, aC = 0, hC = 0;
-    
+
     for (let d = 1; d <= days; d++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      
+      const dateStr =
+        `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
       let st = (monthData[dateStr] || {})[s.id];
+
       if (!st) {
         if (holidayDates.some(h => h.date === dateStr)) st = 'holiday';
         else if (isWeekend(year, month, d)) st = 'weekend';
       }
-      
-      row.push({ present: 'P', absent: 'A', halfday: 'H', holiday: 'Ho', weekend: 'W' }[st] || '');
-      
+
       if (st === 'present') pC++;
       if (st === 'absent')  aC++;
       if (st === 'halfday') hC++;
     }
-    row.push(pC, aC, hC);
-    rows.push(row);
+
+    const totalWork = pC + aC + hC;
+    const percent = totalWork ? (pC / totalWork) : 0;
+
+    const row = sheet.getRow(rowIndex);
+
+    row.values = [
+      index + 1,
+      s.name,
+      s.id,
+      s.dept || '',
+      pC,
+      aC,
+      hC,
+      percent
+    ];
+
+    // Alignment
+    row.getCell(1).alignment = { horizontal: 'center' };
+    row.getCell(5).alignment = { horizontal: 'center' };
+    row.getCell(6).alignment = { horizontal: 'center' };
+    row.getCell(7).alignment = { horizontal: 'center' };
+    row.getCell(8).alignment = { horizontal: 'center' };
+
+    // Percentage format
+    row.getCell(8).numFmt = '0.00%';
+
+    // Borders
+    row.eachCell(cell => {
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+
+    // Zebra rows
+    if (index % 2 === 0) {
+      row.eachCell(cell => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF2F2F2' }
+        };
+      });
+    }
+
+    rowIndex++;
   });
 
-  // Write to File
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = header.map((h, i) => ({ wch: i < 5 ? Math.max(h.length + 4, 16) : 6 }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, MONTHS[month]);
-  XLSX.writeFile(wb, `Attendance_${MONTHS[month]}_${year}.xlsx`);
-  showToast('Excel downloaded ✓');
+  // ───────── COLUMN WIDTHS ─────────
+  sheet.columns = [
+    { width: 6 },
+    { width: 24 },
+    { width: 14 },
+    { width: 18 },
+    { width: 12 },
+    { width: 12 },
+    { width: 12 },
+    { width: 16 }
+  ];
+
+  // Freeze header
+  sheet.views = [{ state: 'frozen', ySplit: headerRowIndex }];
+
+  // ───────── DOWNLOAD ─────────
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer]);
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `Monthly_Overview_${MONTHS[month]}_${year}.xlsx`;
+  link.click();
+
+  showToast('Official HR Excel downloaded ✓');
 }
+
+
+//PDF EXPORT
+async function downloadOverviewPDF() {
+
+  const month = parseInt(document.getElementById('overviewMonth').value);
+  const year  = document.getElementById('overviewYear').value;
+  const dept  = document.getElementById('overviewDeptFilter').value;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF("p", "mm", "a4");
+
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+
+  const GREEN = [23, 112, 54];
+  const ORANGE = [242, 101, 34];
+
+  // ===== LOGO =====
+  const logo = new Image();
+  logo.src = "/sanjivani.png";
+  await new Promise(res => logo.onload = res);
+
+  const logoHeight = 16;
+  const logoWidth = (logo.width / logo.height) * logoHeight;
+
+  doc.addImage(
+    logo,
+    "PNG",
+    (pageWidth - logoWidth) / 2,
+    10,
+    logoWidth,
+    logoHeight
+  );
+
+  const afterLogoY = 10 + logoHeight + 6;
+
+  // ===== FOUNDATION NAME =====
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...GREEN);
+
+  doc.text(
+    "SANJIVANI VIKAS FOUNDATION",
+    pageWidth / 2,
+    afterLogoY,
+    { align: "center" }
+  );
+
+  // ===== ADDRESS BLOCK =====
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(60);
+
+  doc.text(
+    "Behind P.N.B., Mahatma Gandhi Nagar, Kankarbagh, Patna-800026 (Bihar)",
+    pageWidth / 2,
+    afterLogoY + 6,
+    { align: "center" }
+  );
+
+  doc.text(
+    "Regd. Under Societies Regn. Act, 21 of 1860 | Regn. No. 497/2004-05",
+    pageWidth / 2,
+    afterLogoY + 11,
+    { align: "center" }
+  );
+
+  doc.text(
+    "Ph: 0612-2360350 | sanjivanivf@gmail.com | www.sanjivanivf.org",
+    pageWidth / 2,
+    afterLogoY + 16,
+    { align: "center" }
+  );
+
+  // Divider
+  doc.setDrawColor(...ORANGE);
+  doc.setLineWidth(0.8);
+  doc.line(14, afterLogoY + 21, pageWidth - 14, afterLogoY + 21);
+
+  // ===== REPORT TITLE =====
+  doc.setFontSize(14);
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "bold");
+
+  doc.text(
+    "MONTHLY ATTENDANCE OVERVIEW",
+    pageWidth / 2,
+    afterLogoY + 31,
+    { align: "center" }
+  );
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+
+  doc.text(
+    `${MONTHS[month]} ${year} | ${dept === "All" ? "All Departments" : dept}`,
+    pageWidth / 2,
+    afterLogoY + 37,
+    { align: "center" }
+  );
+
+  // ===== SUMMARY SECTION =====
+  const stats = document.querySelectorAll('#overviewStats .stat-value');
+
+  const totalPresent = stats[0]?.textContent || 0;
+  const totalAbsent  = stats[1]?.textContent || 0;
+  const totalHalf    = stats[2]?.textContent || 0;
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...GREEN);
+
+  doc.text("Summary", 14, afterLogoY + 48);
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(0);
+
+  doc.text(`Total Present : ${totalPresent}`, 14, afterLogoY + 55);
+  doc.text(`Total Absent  : ${totalAbsent}`, 14, afterLogoY + 62);
+  doc.text(`Total Half Day: ${totalHalf}`, 14, afterLogoY + 69);
+
+  // ===== TABLE =====
+  const rows = [];
+
+  document.querySelectorAll("#overviewTableBody tr").forEach(tr => {
+    const cols = tr.querySelectorAll("td");
+    rows.push([
+      cols[0]?.textContent,
+      cols[1]?.textContent,
+      cols[2]?.textContent,
+      cols[3]?.textContent,
+      cols[4]?.textContent,
+      cols[5]?.textContent,
+      cols[6]?.textContent
+    ]);
+  });
+
+  doc.autoTable({
+    startY: afterLogoY + 80,
+    head: [[
+      "#",
+      "Employee Name",
+      "Staff ID",
+      "Present",
+      "Absent",
+      "Half Day",
+      "Attendance %"
+    ]],
+    body: rows,
+    theme: "grid",
+    styles: {
+      fontSize: 10,
+      cellPadding: 3,
+      halign: "center"
+    },
+    headStyles: {
+      fillColor: GREEN,
+      textColor: 255,
+      fontStyle: "bold"
+    },
+    columnStyles: {
+      1: { halign: "left" }
+    },
+    alternateRowStyles: {
+      fillColor: [245, 250, 245]
+    }
+  });
+
+  // Footer
+  doc.setFontSize(9);
+  doc.setTextColor(120);
+  doc.text(
+    `Generated on ${new Date().toLocaleDateString()} | SANJIVANI VIKAS FOUNDATION`,
+    14,
+    pageHeight - 10
+  );
+
+  doc.save(`SANJIVANI_Overview_${MONTHS[month]}_${year}.pdf`);
+  showToast("SANJIVANI Overview PDF downloaded ✓");
+}
+
+// ═══════════════════════════════════════════════════════
+// EXCEL EXPORT
+// ═══════════════════════════════════════════════════════
+
+async function downloadExcel() {
+
+  const month = parseInt(document.getElementById('reportMonth').value);
+  const year  = parseInt(document.getElementById('reportYear').value);
+  const dept  = document.getElementById('reportDeptFilter').value;
+
+  await fetchStaff();
+  await fetchHolidays();
+  const monthData = await fetchMonthAttendance(year, month);
+
+  const days = getDaysInMonth(year, month);
+
+  let filtered = dept === 'All'
+    ? staffList
+    : staffList.filter(s => s.dept === dept);
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Monthly Report');
+
+  // ───────── TITLE ─────────
+  sheet.mergeCells(`A1:${String.fromCharCode(68 + days)}1`);
+  sheet.getCell('A1').value =
+    `Monthly Attendance Report - ${MONTHS[month]} ${year}`;
+  sheet.getCell('A1').font = { size: 14, bold: true };
+  sheet.getCell('A1').alignment = { horizontal: 'center' };
+
+  const headerRowIndex = 3;
+
+  // Build Header
+  let headers = ['#', 'Employee Name', 'Staff ID', 'Department'];
+
+  for (let d = 1; d <= days; d++) {
+    headers.push(String(d));
+  }
+
+  headers.push('Present', 'Absent', 'Half Day');
+
+  sheet.getRow(headerRowIndex).values = headers;
+
+  const headerRow = sheet.getRow(headerRowIndex);
+
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+
+  headerRow.eachCell(cell => {
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1F4E78' }
+    };
+    cell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+  });
+
+  // ───────── DATA ─────────
+  let rowIndex = headerRowIndex + 1;
+
+  filtered.forEach((s, index) => {
+
+    let row = sheet.getRow(rowIndex);
+
+    let pC = 0, aC = 0, hC = 0;
+
+    let values = [
+      index + 1,
+      s.name,
+      s.id,
+      s.dept || ''
+    ];
+
+    for (let d = 1; d <= days; d++) {
+
+      const dateStr =
+        `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+      let st = (monthData[dateStr] || {})[s.id];
+
+      if (!st) {
+        if (holidayDates.some(h => h.date === dateStr)) st = 'holiday';
+        else if (isWeekend(year, month, d)) st = 'weekend';
+      }
+
+      const symbol = {
+        present: 'P',
+        absent: 'A',
+        halfday: 'H',
+        holiday: 'Ho',
+        weekend: 'W'
+      }[st] || '';
+
+      values.push(symbol);
+
+      if (st === 'present') pC++;
+      if (st === 'absent')  aC++;
+      if (st === 'halfday') hC++;
+    }
+
+    values.push(pC, aC, hC);
+
+    row.values = values;
+
+    // Alignment
+    row.getCell(1).alignment = { horizontal: 'center' };
+
+    for (let i = 5; i <= 4 + days; i++) {
+      row.getCell(i).alignment = { horizontal: 'center' };
+    }
+
+    row.getCell(5 + days).alignment = { horizontal: 'center' };
+    row.getCell(6 + days).alignment = { horizontal: 'center' };
+    row.getCell(7 + days).alignment = { horizontal: 'center' };
+
+    // Borders
+    row.eachCell(cell => {
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+
+    // Zebra rows
+    if (index % 2 === 0) {
+      row.eachCell(cell => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF2F2F2' }
+        };
+      });
+    }
+
+    rowIndex++;
+  });
+
+  // ───────── COLUMN WIDTHS ─────────
+  let cols = [
+    { width: 6 },
+    { width: 24 },
+    { width: 14 },
+    { width: 18 }
+  ];
+
+  for (let d = 1; d <= days; d++) {
+    cols.push({ width: 6 });
+  }
+
+  cols.push({ width: 12 }, { width: 12 }, { width: 12 });
+
+  sheet.columns = cols;
+
+  // Freeze header
+  sheet.views = [{ state: 'frozen', ySplit: headerRowIndex }];
+
+  // ───────── DOWNLOAD ─────────
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer]);
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `Attendance_Report_${MONTHS[month]}_${year}.xlsx`;
+  link.click();
+
+  showToast('Official Monthly Report downloaded ✓');
+}
+
 
 // ═══════════════════════════════════════════════════════
 // PDF EXPORT
 // ═══════════════════════════════════════════════════════
-
 async function downloadPDF() {
+
   const month = parseInt(document.getElementById('reportMonth').value);
   const year  = parseInt(document.getElementById('reportYear').value);
   const dept  = document.getElementById('reportDeptFilter').value;
-  const days  = getDaysInMonth(year, month);
 
   await fetchStaff();
+  await fetchHolidays();
   const monthData = await fetchMonthAttendance(year, month);
-  let filtered = dept === 'All' ? staffList : staffList.filter(s => s.dept === dept);
 
- const { jsPDF } = window.jspdf;
+  const days = getDaysInMonth(year, month);
 
-const doc = new jsPDF({
-  orientation: 'landscape',
-  unit: 'mm',
-  format: 'a4'
-});
+  let filtered = dept === 'All'
+    ? staffList
+    : staffList.filter(s => s.dept === dept);
 
+  const { jsPDF } = window.jspdf;
 
-  // PDF Header
-  doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.setTextColor(79, 138, 255);
-  doc.text('Staff Attendance Report', 14, 14);
-  doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 128, 153);
-  doc.text(`${MONTHS[month]} ${year}  |  ${dept === 'All' ? 'All Departments' : dept}`, 14, 22);
-
-  // PDF Legend
-  const legendItems = [
-    { label: 'P – Present', color: [52, 211, 153] },
-    { label: 'A – Absent', color: [248, 113, 113] },
-    { label: 'H – Half Day', color: [251, 191, 36] },
-    { label: 'Ho – Holiday', color: [167, 139, 250] },
-    { label: 'W – Weekend', color: [100, 116, 139] }
-  ];
-  doc.setFontSize(8);
-  legendItems.forEach((li, i) => {
-    const x = 14 + i * 40;
-    doc.setFillColor(...li.color);
-    doc.roundedRect(x, 28, 4, 4, 0.5, 0.5, 'F');
-    doc.setTextColor(0, 0, 0);
-    doc.text(li.label, x + 6, 31.2);
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4'
   });
 
-  // Data Preparation for AutoTable
-  let head = ['#', 'Name', 'ID', 'Dept'];
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+
+  // ===== BRAND COLORS =====
+  const GREEN = [23, 112, 54];
+  const ORANGE = [242, 101, 34];
+
+  // ===== LOGO =====
+  const logo = new Image();
+  logo.src = "/sanjivani.png";
+  await new Promise(res => logo.onload = res);
+
+  const logoHeight = 16;
+  const logoWidth = (logo.width / logo.height) * logoHeight;
+
+  doc.addImage(
+    logo,
+    "PNG",
+    (pageWidth - logoWidth) / 2,
+    10,
+    logoWidth,
+    logoHeight
+  );
+
+  // Dynamic spacing after logo
+  const afterLogoY = 10 + logoHeight + 6;
+
+  // ===== FOUNDATION NAME =====
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...GREEN);
+
+  doc.text(
+    "SANJIVANI VIKAS FOUNDATION",
+    pageWidth / 2,
+    afterLogoY,
+    { align: "center" }
+  );
+
+  // ===== ADDRESS BLOCK =====
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(60);
+
+  doc.text(
+    "Behind P.N.B., Mahatma Gandhi Nagar, Kankarbagh, Patna-800026 (Bihar)",
+    pageWidth / 2,
+    afterLogoY + 6,
+    { align: "center" }
+  );
+
+  doc.text(
+    "Regd. Under Societies Regn. Act, 21 of 1860 | Regn. No. 497/2004-05",
+    pageWidth / 2,
+    afterLogoY + 11,
+    { align: "center" }
+  );
+
+  doc.text(
+    "Ph: 0612-2360350 | sanjivanivf@gmail.com | www.sanjivanivf.org",
+    pageWidth / 2,
+    afterLogoY + 16,
+    { align: "center" }
+  );
+
+  // ===== ORANGE DIVIDER =====
+  doc.setDrawColor(...ORANGE);
+  doc.setLineWidth(0.8);
+  doc.line(14, afterLogoY + 22, pageWidth - 14, afterLogoY + 22);
+
+  // ===== REPORT TITLE =====
+  doc.setFontSize(14);
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "bold");
+
+  doc.text(
+    "MONTHLY ATTENDANCE REPORT",
+    pageWidth / 2,
+    afterLogoY + 32,
+    { align: "center" }
+  );
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+
+  doc.text(
+    `${MONTHS[month]} ${year} | ${dept === 'All' ? 'All Departments' : dept}`,
+    pageWidth / 2,
+    afterLogoY + 38,
+    { align: "center" }
+  );
+
+  // ===== TABLE HEADER =====
+  let head = ['#', 'Employee Name', 'ID', 'Dept'];
   for (let d = 1; d <= days; d++) head.push(String(d));
   head.push('P', 'A', 'H');
 
-  const statusMap = {
-  'P – Present': 'P',
-  'A – Absent': 'A',
-  'H – Half Day': 'H',
-  'Ho – Holiday': 'Ho',
-  'W – Weekend': 'W'
-};
+  let body = [];
 
-const statusColors = {};
+  filtered.forEach((s, i) => {
 
-legendItems.forEach(li => {
-  const code = statusMap[li.label];
-  if (code) {
-    statusColors[code] = li.color;
-  }
-});
+    let row = [i + 1, s.name, s.id, s.dept || ''];
 
-
-  let body = filtered.map((s, i) => {
-    let row = [i + 1, s.name, s.id, s.dept || '—'];
     let pC = 0, aC = 0, hC = 0;
+
     for (let d = 1; d <= days; d++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const st = (monthData[dateStr] || {})[s.id] || (isWeekend(year, month, d) ? 'weekend' : '');
-      
-      row.push({ present: 'P', absent: 'A', halfday: 'H', holiday: 'Ho', weekend: 'W' }[st] || '');
-      
+
+      const dateStr =
+        `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+      let st = (monthData[dateStr] || {})[s.id];
+
+      if (!st) {
+        if (holidayDates.some(h => h.date === dateStr)) st = 'holiday';
+        else if (isWeekend(year, month, d)) st = 'weekend';
+      }
+
+      const symbol = {
+        present: 'P',
+        absent: 'A',
+        halfday: 'H',
+        holiday: 'Ho',
+        weekend: 'W'
+      }[st] || '';
+
+      row.push(symbol);
+
       if (st === 'present') pC++;
       if (st === 'absent')  aC++;
       if (st === 'halfday') hC++;
     }
+
     row.push(pC, aC, hC);
-    return row;
+    body.push(row);
   });
 
-  // Draw Table
-importAutoTable(doc);
-
-function importAutoTable(doc) {
-  window.jspdf.jsPDF.API.autoTable.call(doc, {
-    startY: 36,
+  doc.autoTable({
+    startY: afterLogoY + 48,
     head: [head],
-    body,
-    theme: 'plain',
+    body: body,
+    theme: "grid",
     styles: {
-      fontSize: 6.5,
-      cellPadding: 1.5,
-      lineWidth: .1,
-      lineColor: [60, 65, 80],
-      textColor: [0, 0, 0]
+      fontSize: 7,
+      cellPadding: 2,
+      halign: "center"
     },
     headStyles: {
-      fillColor: [30, 33, 46],
-      textColor: [79, 138, 255],
-      fontStyle: 'bold',
-      fontSize: 6.5
+      fillColor: GREEN,
+      textColor: 255,
+      fontStyle: "bold"
+    },
+    columnStyles: {
+      1: { halign: "left" },
+      3: { halign: "left" }
+    },
+    alternateRowStyles: {
+      fillColor: [245, 250, 245]
     }
   });
+
+  // ===== FOOTER =====
+  doc.setFontSize(9);
+  doc.setTextColor(120);
+
+  doc.text(
+    `Generated on ${new Date().toLocaleDateString()} | SANJIVANI VIKAS FOUNDATION`,
+    14,
+    pageHeight - 10
+  );
+
+  doc.save(`SANJIVANI_Attendance_${MONTHS[month]}_${year}.pdf`);
+
+  showToast("SANJIVANI Official Monthly PDF downloaded ✓");
 }
 
-  doc.save(`Attendance_${MONTHS[month]}_${year}.pdf`);
-  showToast('PDF downloaded ✓');
-}
+
 
 // ─── HOLIDAY UI TOGGLE ───
 function toggleHolidayManager() {
@@ -931,9 +1780,13 @@ function toggleHolidayManager() {
 // ─── STARTUP ───
 
 // Close modal when clicking outside of it
-document.getElementById('staffModal').addEventListener('click', function(e) {
-  if (e.target === this) closeStaffModal();
-});
+const staffModalEl = document.getElementById('staffModal');
+if (staffModalEl) {
+  staffModalEl.addEventListener('click', function(e) {
+    if (e.target === this) closeStaffModal();
+  });
+}
+
 
 // Run initialization when DOM is ready
 window.addEventListener('DOMContentLoaded', init);

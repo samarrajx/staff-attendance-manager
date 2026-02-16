@@ -517,3 +517,26 @@ tr:hover td { background: rgba(255, 255, 255, .02); }
 .holiday-item:last-child {
   border-bottom:none;
 }
+#overviewGraphSection {
+  width: 100%;
+}
+
+/* ===== MONTHLY OVERVIEW FIX ===== */
+
+.overview-chart-card {
+  min-height: 450px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overview-chart-wrapper {
+  width: 100%;
+  height: 400px;
+  position: relative;
+}
+
+#overviewChart {
+  width: 100% !important;
+  height: 100% !important;
+}
