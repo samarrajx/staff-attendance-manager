@@ -356,6 +356,38 @@
     </div>
   </div>
 </div>
+<div class="modal-overlay" id="staffModal">
+  <div class="modal">
+    <h3 id="staffModalTitle">Add Staff</h3>
+
+    <input type="hidden" id="editStaffId">
+
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="staffName">
+    </div>
+
+    <div class="form-group">
+      <label>Staff ID</label>
+      <input type="text" id="staffId">
+    </div>
+
+    <div class="form-group">
+      <label>Department</label>
+      <input type="text" id="staffDept">
+    </div>
+
+    <div class="form-group">
+      <label>Position</label>
+      <input type="text" id="staffPosition">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeStaffModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStaff()">Save</button>
+    </div>
+  </div>
+</div>
 
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

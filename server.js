@@ -1,525 +1,285 @@
+require('dotenv').config();
 const session = require('express-session');
 const bcrypt  = require('bcrypt');
 const express = require('express');
 const path    = require('path');
 const db      = require('./db');
 
-
-const existingAdmin = db.getUserByUsername.get('admin');
-
-if (!existingAdmin) {
-  const hashed = bcrypt.hashSync('Samarraj@12', 10);
-  db.insertUser.run('admin', hashed, 'admin', null);
-  console.log('Admin created → admin / Samarraj@12');
-}
-
-
 const app  = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 app.use(express.json());
+
 app.use(session({
-  secret: 'attendance-local-secret',
+  secret: 'attendance-secret',
   resave: false,
   saveUninitialized: false
 }));
 
-function requireAuth(req, res, next) {
-  if (!req.session.user) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+// ─────────────────────────────────────────
+// ADMIN AUTO CREATE
+// ─────────────────────────────────────────
+async function ensureAdmin() {
+  const { rows } = await db.query(
+    'SELECT * FROM users WHERE username = $1',
+    ['admin']
+  );
+
+  if (rows.length === 0) {
+    const hashed = bcrypt.hashSync('admin123', 10);
+
+    await db.query(
+      'INSERT INTO users (username,password,role,staff_id) VALUES ($1,$2,$3,$4)',
+      ['admin', hashed, 'admin', null]
+    );
+
+    console.log('Admin created → admin / admin123');
   }
+}
+
+// ─────────────────────────────────────────
+// MIDDLEWARE
+// ─────────────────────────────────────────
+function requireAuth(req, res, next) {
+  if (!req.session.user)
+    return res.status(401).json({ success: false });
   next();
 }
 
 function requireAdmin(req, res, next) {
-  if (!req.session.user || req.session.user.role !== 'admin') {
-    return res.status(403).json({ success: false, error: 'Admin only' });
-  }
+  if (!req.session.user || req.session.user.role !== 'admin')
+    return res.status(403).json({ success: false });
   next();
 }
 
-
-
-// ═══════════════════════════════════════════════════════
-// STAFF ROUTES
-// ═══════════════════════════════════════════════════════
-
-app.post('/api/login', (req, res) => {
+// ─────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
 
-  const user = db.getUserByUsername.get(username);
-  if (!user) {
-    return res.status(401).json({ success: false, error: 'Invalid credentials' });
-  }
+  const { rows } = await db.query(
+    'SELECT * FROM users WHERE username=$1',
+    [username]
+  );
 
-  const valid = bcrypt.compareSync(password, user.password);
-  if (!valid) {
-    return res.status(401).json({ success: false, error: 'Invalid credentials' });
-  }
+  const user = rows[0];
+  if (!user) return res.status(401).json({ success:false });
+
+  if (!bcrypt.compareSync(password, user.password))
+    return res.status(401).json({ success:false });
 
   req.session.user = {
-  id: user.id,
-  username: user.username,
-  role: user.role,
-  staffId: user.staff_id
-};
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    staffId: user.staff_id
+  };
 
-
-  res.json({ success: true });
+  res.json({ success:true });
 });
 
-app.post('/api/logout', requireAuth, (req, res) => {
+app.post('/api/logout', requireAuth, (req,res)=>{
   req.session.destroy();
-  res.json({ success: true });
+  res.json({ success:true });
 });
 
-app.post('/api/reset-password', requireAuth, (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ success: false, error: 'All fields required' });
-    }
-
-    const user = db.getUserByUsername.get(req.session.user.username);
-
-    const valid = bcrypt.compareSync(currentPassword, user.password);
-    if (!valid) {
-      return res.status(401).json({ success: false, error: 'Current password incorrect' });
-    }
-
-    const hashed = bcrypt.hashSync(newPassword, 10);
-    db.updateUserPassword.run(hashed, user.id);
-
-    res.json({ success: true, message: 'Password updated successfully' });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+app.get('/api/me', requireAuth, (req,res)=>{
+  res.json({ success:true, user:req.session.user });
 });
 
-// Admin → reset any user's password to default
-app.post('/api/admin/reset-user-password', requireAdmin, (req, res) => {
-  try {
-    const { userId } = req.body;
+// ─────────────────────────────────────────
+// STAFF
+// ─────────────────────────────────────────
+app.get('/api/staff', requireAuth, async (req,res)=>{
+  const { rows } = await db.query(
+    'SELECT * FROM staff ORDER BY name ASC'
+  );
 
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'userId required' });
-    }
-
-    const user = db.getUserById.get(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
-    }
-
-    const defaultPassword = 'sam123456';
-    const hashed = bcrypt.hashSync(defaultPassword, 10);
-
-    db.updateUserPassword.run(hashed, userId);
-
-    res.json({
-      success: true,
-      message: `Password reset to default → ${defaultPassword}`
+  if (req.session.user.role === 'employee') {
+    return res.json({
+      success:true,
+      data: rows.filter(s=>s.id===req.session.user.staffId)
     });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
   }
+
+  res.json({ success:true, data:rows });
 });
 
-
-
-// ═════════ HOLIDAYS ═════════
-
-// list holidays
-app.get('/api/holidays', requireAuth, (req, res) => {
-  try {
-    const rows = db.getHolidays.all();
-    res.json({ success: true, data: rows });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+app.get('/api/staff/departments', requireAuth, async (req,res)=>{
+  const { rows } = await db.query(
+    "SELECT DISTINCT dept FROM staff WHERE dept != '' ORDER BY dept ASC"
+  );
+  res.json({ success:true, data:rows.map(r=>r.dept) });
 });
 
-// add / update holiday
-app.post('/api/holidays', requireAdmin, (req, res) => {
-  try {
-    const { date, name } = req.body;
+app.post('/api/staff', requireAdmin, async (req,res)=>{
+  const { id,name,dept,position } = req.body;
 
-    if (!date) {
-      return res.status(400).json({ success: false, error: 'date required' });
-    }
+  if (!id || !name)
+    return res.status(400).json({ success:false });
 
-    db.addHoliday.run(date, name || '');
+  await db.query(
+    'INSERT INTO staff (id,name,dept,position) VALUES ($1,$2,$3,$4)',
+    [id,name,dept||'',position||'']
+  );
 
-    // AUTO MARK HOLIDAY FOR ALL STAFF
-    const allStaff = db.getAllStaff.all();
+  const hashed = bcrypt.hashSync('sam123456',10);
 
-    allStaff.forEach(s => {
-      db.upsertAttendance.run(s.id, date, 'holiday');
-    });
+  await db.query(
+    'INSERT INTO users (username,password,role,staff_id) VALUES ($1,$2,$3,$4)',
+    [id.toLowerCase(),hashed,'employee',id]
+  );
 
-    res.json({ success: true });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  res.json({ success:true });
 });
 
+app.put('/api/staff/:id', requireAdmin, async (req,res)=>{
+  const { id } = req.params;
+  const { name,dept,position } = req.body;
 
-// delete holiday
-app.delete('/api/holidays', requireAdmin, (req, res) => {
-  try {
-    const { date } = req.body;
-    if (!date) {
-      return res.status(400).json({ success: false, error: 'date required' });
-    }
-    db.deleteHoliday.run(date);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  await db.query(
+    'UPDATE staff SET name=$1,dept=$2,position=$3 WHERE id=$4',
+    [name,dept||'',position||'',id]
+  );
+
+  res.json({ success:true });
 });
 
-// GET → list all staff
-app.get('/api/staff', requireAuth, (req, res) => {
-  try {
-    const allStaff = db.getAllStaff.all();
+app.delete('/api/staff/:id', requireAdmin, async (req,res)=>{
+  const id = req.params.id;
 
-    // 🔒 If employee → only return their own staff record
-    if (req.session.user.role === 'employee') {
-      const filtered = allStaff.filter(
-        s => s.id === req.session.user.staffId
-      );
+  await db.query('DELETE FROM staff WHERE id=$1',[id]);
+  await db.query('DELETE FROM users WHERE staff_id=$1',[id]);
 
-      return res.json({ success: true, data: filtered });
-    }
-
-    // Admin sees all
-    res.json({ success: true, data: allStaff });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  res.json({ success:true });
 });
 
+// ─────────────────────────────────────────
+// ATTENDANCE
+// ─────────────────────────────────────────
+app.get('/api/attendance', requireAuth, async (req,res)=>{
+  const { date } = req.query;
 
-// GET → department names
-app.get('/api/staff/departments', requireAuth, (req, res) => {
-  try {
-    const rows = db.getDepartments.all();
-    res.json({ success: true, data: rows.map(r => r.dept) });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  const { rows } = await db.query(
+    'SELECT staff_id,status FROM attendance WHERE date=$1',
+    [date]
+  );
+
+  const map = {};
+  rows.forEach(r=> map[r.staff_id]=r.status);
+
+  res.json({ success:true, data:map });
 });
 
-// POST → add staff
-app.post('/api/staff', requireAdmin, (req, res) => {
-  try {
-    const { id, name, dept, position } = req.body;
+app.get('/api/attendance/month', requireAuth, async (req,res)=>{
+  const { year,month } = req.query;
 
-    if (!id || !name) {
-      return res.status(400).json({ success: false, error: 'id and name required' });
-    }
+  const mm   = String(parseInt(month)+1).padStart(2,'0');
+  const from = `${year}-${mm}-01`;
+  const last = new Date(year,parseInt(month)+1,0).getDate();
+  const to   = `${year}-${mm}-${String(last).padStart(2,'0')}`;
 
-    if (db.getStaffById.get(id)) {
-      return res.status(409).json({ success: false, error: 'Staff ID exists' });
-    }
+  const { rows } = await db.query(
+    'SELECT staff_id,date,status FROM attendance WHERE date >= $1 AND date <= $2',
+    [from,to]
+  );
 
-    // 1️⃣ Insert into staff table
-    db.insertStaff.run(id, name, dept || '', position || '');
+  const map = {};
 
-    // 2️⃣ Auto-create employee login
-    const username = id.toLowerCase(); // example: emp001
-    const defaultPassword = 'sam123456';  // temporary password
-    const hashed = bcrypt.hashSync(defaultPassword, 10);
+  rows.forEach(r=>{
+    const dateStr = new Date(r.date).toISOString().split('T')[0];
 
-    db.insertUser.run(username, hashed, 'employee', id);
-
-    res.status(201).json({
-      success: true,
-      message: `Staff added. Login → ${username} / ${defaultPassword}`
-    });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-
-// PUT → update
-app.put('/api/staff/:id', requireAdmin, (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, dept, position } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ success: false, error: 'name is required' });
-    }
-
-    // must exist
-    if (!db.getStaffById.get(id)) {
-      return res.status(404).json({ success: false, error: 'Staff not found' });
-    }
-
-    db.updateStaff.run(name, dept || '', position || '', id);
-    res.json({ success: true, message: 'Staff updated' });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// DELETE → remove staff
-app.delete('/api/staff/:id', requireAdmin, (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!db.getStaffById.get(id)) {
-      return res.status(404).json({ success: false, error: 'Staff not found' });
-    }
-
-    // 1️⃣ Delete staff
-    db.deleteStaff.run(id);
-
-   // 2️⃣ Delete linked user account
-
-    db.deleteUserByStaffId.run(id);
-
-
-    res.json({ success: true, message: 'Staff and user account deleted' });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-
-// ═══════════════════════════════════════════════════════
-// ATTENDANCE ROUTES
-// ═══════════════════════════════════════════════════════
-
-app.get('/api/attendance', requireAuth, (req, res) => {
-  try {
-    const { date } = req.query;
-
-    if (!date) {
-      return res.status(400).json({ success: false, error: 'date query param required' });
-    }
-
-    const dateObj = new Date(date);
-    const isSunday = dateObj.getDay() === 0;
-
-    // 🔎 Check if holiday
-    const holiday = db.getHolidayByDate.get(date)
-
-    const allStaff = db.getAllStaff.all();
-    const existingRows = db.getAttendanceByDate.all(date);
-
-    const existingMap = {};
-    existingRows.forEach(r => {
-      existingMap[r.staff_id] = r.status;
-    });
-
-    allStaff.forEach(s => {
-      if (!existingMap[s.id]) {
-
-        if (holiday) {
-          db.upsertAttendance.run(s.id, date, 'holiday');
-        } 
-        else if (isSunday) {
-          db.upsertAttendance.run(s.id, date, 'weekend');
-        }
-
-      }
-    });
-
-    const rows = db.getAttendanceByDate.all(date);
-    const map = {};
-    rows.forEach(r => { map[r.staff_id] = r.status; });
-
-    res.json({ success: true, data: map });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-
-
-app.get('/api/attendance/month', requireAuth, (req, res) => {
-  try {
-    const year  = parseInt(req.query.year);
-    const month = parseInt(req.query.month);
-
-    if (isNaN(year) || isNaN(month)) {
-      return res.status(400).json({ success: false, error: 'year and month required' });
-    }
-
-    const mm   = String(month + 1).padStart(2, '0');
-    const from = `${year}-${mm}-01`;
-    const last = new Date(year, month + 1, 0).getDate();
-    const to   = `${year}-${mm}-${String(last).padStart(2, '0')}`;
-
-    const allStaff = db.getAllStaff.all();
-
-    // 🔥 AUTO MARK ALL SUNDAYS
-    for (let d = 1; d <= last; d++) {
-      const dateObj = new Date(year, month, d);
-      if (dateObj.getDay() === 0) { // Sunday
-
-        const dateStr = `${year}-${mm}-${String(d).padStart(2, '0')}`;
-
-        allStaff.forEach(s => {
-
-          const existing = db.getAttendanceByDate.all(dateStr)
-            .find(r => r.staff_id === s.id);
-
-          if (!existing) {
-            db.upsertAttendance.run(s.id, dateStr, 'weekend');
-          }
-        });
-      }
-    }
-
-    // Now fetch updated data
-    const rows = db.getAttendanceByMonth.all(from, to);
-
-    const map = {};
-
-    rows.forEach(r => {
-
-      if (req.session.user.role === 'employee' &&
-          r.staff_id !== req.session.user.staffId) {
-        return;
-      }
-
-      if (!map[r.date]) map[r.date] = {};
-      map[r.date][r.staff_id] = r.status;
-    });
-
-    res.json({ success: true, data: map });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-
-// Employee — get only their own attendance
-app.get('/api/my-report', requireAuth, (req, res) => {
-  try {
-    if (req.session.user.role !== 'employee') {
-      return res.status(403).json({ success: false, error: 'Employees only' });
-    }
-
-    const staffId = req.session.user.staffId;
-
-    const year  = parseInt(req.query.year);
-    const month = parseInt(req.query.month);
-
-    if (isNaN(year) || isNaN(month)) {
-      return res.status(400).json({ success: false, error: 'year and month required' });
-    }
-
-    const mm   = String(month + 1).padStart(2, '0');
-    const from = `${year}-${mm}-01`;
-    const last = new Date(year, month + 1, 0).getDate();
-    const to   = `${year}-${mm}-${String(last).padStart(2, '0')}`;
-
-    const rows = db.getAttendanceByMonth.all(from, to)
-                   .filter(r => r.staff_id === staffId);
-
-    res.json({ success: true, data: rows });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-
-// POST → save attendance
-app.post('/api/attendance', requireAdmin, (req, res) => {
-  try {
-    const { staffId, date, status } = req.body;
-
-    if (!staffId || !date || !status) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'staffId, date, and status are required' 
-      });
-    }
-
-    // 🔎 Check if date is holiday
-    const holiday = db.getHolidayByDate.get(date)
-
-    // 🔎 Check if weekend (Sunday)
-    const d = new Date(date);
-    const isSunday = d.getDay() === 0;
-
-    // 🚫 Override manual marking if holiday/weekend
-    if (holiday) {
-      db.upsertAttendance.run(staffId, date, 'holiday');
-    } 
-    else if (isSunday) {
-      db.upsertAttendance.run(staffId, date, 'weekend');
-    } 
-    else {
-      db.upsertAttendance.run(staffId, date, status);
-    }
-
-    res.json({ success: true, message: 'Attendance saved' });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-
-// DELETE → remove attendance
-app.delete('/api/attendance', requireAdmin, (req, res) => {
-  try {
-    const { staffId, date } = req.body;
-
-    if (!staffId || !date) {
-      return res.status(400).json({ success: false, error: 'staffId and date are required' });
-    }
-
-    db.deleteAttendance.run(staffId, date);
-    res.json({ success: true, message: 'Attendance removed' });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-// Get current logged-in user
-app.get('/api/me', requireAuth, (req, res) => {
-  res.json({
-    success: true,
-    user: req.session.user
+    if (!map[dateStr]) map[dateStr]={};
+    map[dateStr][r.staff_id]=r.status;
   });
+
+  res.json({ success:true, data:map });
+});
+
+app.post('/api/attendance', requireAdmin, async (req,res)=>{
+  const { staffId,date,status } = req.body;
+
+  await db.query(`
+    INSERT INTO attendance (staff_id,date,status)
+    VALUES ($1,$2,$3)
+    ON CONFLICT (staff_id,date)
+    DO UPDATE SET status=EXCLUDED.status, updated_at=NOW()
+  `,[staffId,date,status]);
+
+  res.json({ success:true });
+});
+
+app.delete('/api/attendance', requireAdmin, async (req,res)=>{
+  const { staffId,date } = req.body;
+
+  await db.query(
+    'DELETE FROM attendance WHERE staff_id=$1 AND date=$2',
+    [staffId,date]
+  );
+
+  res.json({ success:true });
+});
+
+// ─────────────────────────────────────────
+// HOLIDAYS
+// ─────────────────────────────────────────
+app.get('/api/holidays', requireAuth, async (req,res)=>{
+  const { rows } = await db.query(
+    "SELECT TO_CHAR(date, 'YYYY-MM-DD') as date, name FROM holidays ORDER BY date"
+  );
+
+  res.json({ success:true, data:rows });
 });
 
 
-// fallback
+app.post('/api/holidays', requireAdmin, async (req,res)=>{
+  const { date,name } = req.body;
 
-// 🔐 Control home route FIRST
-app.get('/', (req, res) => {
-  if (!req.session.user) {
-    return res.sendFile(path.join(__dirname, 'public', 'login.html'));
-  }
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  await db.query(`
+    INSERT INTO holidays (date,name)
+    VALUES ($1,$2)
+    ON CONFLICT (date)
+    DO UPDATE SET name=EXCLUDED.name
+  `,[date,name||'']);
+
+  res.json({ success:true });
 });
 
-// THEN allow static files
-app.use(express.static(path.join(__dirname, 'public')));
+app.delete('/api/holidays', requireAdmin, async (req,res)=>{
+  const { date } = req.body;
 
-// start
-app.listen(PORT, () => {
+  const result = await db.query(
+    'DELETE FROM holidays WHERE date = $1',
+    [date]
+  );
+
+  console.log("Deleted rows:", result.rowCount);
+
+  res.json({ success:true });
+});
+
+
+
+// ─────────────────────────────────────────
+// STATIC
+// ─────────────────────────────────────────
+app.get('/', (req,res)=>{
+  if (!req.session.user)
+    return res.sendFile(path.join(__dirname,'public','login.html'));
+  res.sendFile(path.join(__dirname,'public','index.html'));
+});
+
+app.use(express.static(path.join(__dirname,'public')));
+
+// ─────────────────────────────────────────
+// START
+// ─────────────────────────────────────────
+app.listen(PORT, async ()=>{
   console.log('─────────────────────────────────────────');
-  console.log('  Staff Attendance Manager');
-  console.log(`  Running on: http://localhost:${PORT}`);
-  console.log('  Database:   attendance.db');
+  console.log(`Running on http://localhost:${PORT}`);
+  console.log('Database: Supabase PostgreSQL');
   console.log('─────────────────────────────────────────');
+
+  await ensureAdmin();
 });
