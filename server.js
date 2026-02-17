@@ -324,17 +324,18 @@ app.get('/api/attendance/month', requireAuth, async (req,res)=>{
   const to   = `${year}-${mm}-${String(last).padStart(2,'0')}`;
 
   const { rows } = await db.query(
-    'SELECT staff_id,date,status FROM attendance WHERE date >= $1 AND date <= $2',
-    [from,to]
-  );
+  "SELECT staff_id, TO_CHAR(date, 'YYYY-MM-DD') as date, status FROM attendance WHERE date >= $1 AND date <= $2",
+  [from,to]
+);
+
 
   const map = {};
 
   rows.forEach(r=>{
-    const dateStr = new Date(r.date).toISOString().split('T')[0];
-    if (!map[dateStr]) map[dateStr] = {};
-    map[dateStr][r.staff_id] = r.status;
-  });
+  if (!map[r.date]) map[r.date] = {};
+  map[r.date][r.staff_id] = r.status;
+});
+
 
   res.json({ success:true, data:map });
 });

@@ -742,6 +742,8 @@ async function renderReport() {
   await fetchStaff();
   await fetchHolidays();
   const monthData = await fetchMonthAttendance(year, month);
+  console.log("Month Data:", monthData);
+
 
   let filtered = dept === 'All' ? staffList : staffList.filter(s => s.dept === dept);
   let totals = { present: 0, absent: 0, halfday: 0, holiday: 0, weekend: 0 };
