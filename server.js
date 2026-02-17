@@ -7,7 +7,10 @@ const path    = require('path');
 const db      = require('./db');
 
 const app  = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
+// IMPORTANT for Render / reverse proxy
+app.set('trust proxy', 1);
 
 app.use(express.json());
 
@@ -23,7 +26,7 @@ app.use(session({
 }));
 
 // ─────────────────────────────────────────
-// ROLE MIDDLEWARE
+// AUTH MIDDLEWARE
 // ─────────────────────────────────────────
 
 function requireAuth(req, res, next) {
@@ -34,21 +37,18 @@ function requireAuth(req, res, next) {
 
 function requireRole(allowedRoles) {
   return (req, res, next) => {
+    if (!req.session.user)
+      return res.status(401).json({ success: false });
 
-    if (!req.session.user) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-    if (!allowedRoles.includes(req.session.user.role)) {
-      return res.status(403).json({ success: false, error: 'Forbidden' });
-    }
+    if (!allowedRoles.includes(req.session.user.role))
+      return res.status(403).json({ success: false });
 
     next();
   };
 }
 
 // ─────────────────────────────────────────
-// ENV ADMIN CREATION (PostgreSQL SAFE)
+// ENV ADMIN CREATION
 // ─────────────────────────────────────────
 
 async function ensureAdmin() {
@@ -57,9 +57,11 @@ async function ensureAdmin() {
 
   if (!adminUser || !adminPass) return;
 
+  const cleanUsername = adminUser.toLowerCase();
+
   const { rows } = await db.query(
     'SELECT id FROM users WHERE username=$1',
-    [adminUser]
+    [cleanUsername]
   );
 
   if (rows.length === 0) {
@@ -67,7 +69,7 @@ async function ensureAdmin() {
 
     await db.query(
       'INSERT INTO users (username,password,role,staff_id) VALUES ($1,$2,$3,$4)',
-      [adminUser, hashed, 'admin', null]
+      [cleanUsername, hashed, 'admin', null]
     );
 
     console.log('Admin created from ENV');
@@ -75,7 +77,7 @@ async function ensureAdmin() {
 }
 
 // ─────────────────────────────────────────
-// AUTH
+// AUTH ROUTES
 // ─────────────────────────────────────────
 
 app.post('/api/login', async (req, res) => {
@@ -83,32 +85,26 @@ app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Username and password required'
-      });
+      return res.status(400).json({ success:false });
     }
+
+    const cleanUsername = username.trim().toLowerCase();
 
     const { rows } = await db.query(
       'SELECT * FROM users WHERE username=$1',
-      [username]
+      [cleanUsername]
     );
 
     if (rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
+      return res.status(401).json({ success:false });
     }
 
     const user = rows[0];
+
     const valid = await bcrypt.compare(password, user.password);
 
     if (!valid) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
+      return res.status(401).json({ success:false });
     }
 
     req.session.user = {
@@ -118,17 +114,18 @@ app.post('/api/login', async (req, res) => {
       staffId: user.staff_id
     };
 
-    res.json({ success: true, role: user.role });
+    res.json({ success:true, role:user.role });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: 'Server error' });
+    console.error("Login error:", err);
+    res.status(500).json({ success:false });
   }
 });
 
 app.post('/api/logout', requireAuth, (req,res)=>{
-  req.session.destroy();
-  res.json({ success:true });
+  req.session.destroy(()=>{
+    res.json({ success:true });
+  });
 });
 
 app.get('/api/me', requireAuth, (req,res)=>{
@@ -147,7 +144,7 @@ app.get('/api/staff', requireAuth, async (req,res)=>{
   if (req.session.user.role === 'employee') {
     return res.json({
       success:true,
-      data: rows.filter(s=>s.id===req.session.user.staffId)
+      data: rows.filter(s => s.id === req.session.user.staffId)
     });
   }
 
@@ -227,7 +224,7 @@ app.get('/api/attendance', requireAuth, async (req,res)=>{
   );
 
   const map = {};
-  rows.forEach(r=> map[r.staff_id]=r.status);
+  rows.forEach(r => map[r.staff_id] = r.status);
 
   res.json({ success:true, data:map });
 });
@@ -249,8 +246,8 @@ app.get('/api/attendance/month', requireAuth, async (req,res)=>{
 
   rows.forEach(r=>{
     const dateStr = new Date(r.date).toISOString().split('T')[0];
-    if (!map[dateStr]) map[dateStr]={};
-    map[dateStr][r.staff_id]=r.status;
+    if (!map[dateStr]) map[dateStr] = {};
+    map[dateStr][r.staff_id] = r.status;
   });
 
   res.json({ success:true, data:map });
@@ -309,7 +306,7 @@ app.delete('/api/holidays', requireRole(['admin']), async (req,res)=>{
   const { date } = req.body;
 
   await db.query(
-    'DELETE FROM holidays WHERE date = $1',
+    'DELETE FROM holidays WHERE date=$1',
     [date]
   );
 
@@ -334,9 +331,5 @@ app.use(express.static(path.join(__dirname,'public')));
 
 app.listen(PORT, async ()=>{
   await ensureAdmin();
-
-  console.log('─────────────────────────────────────────');
-  console.log(`Running on http://localhost:${PORT}`);
-  console.log('Database: Supabase PostgreSQL');
-  console.log('─────────────────────────────────────────');
+  console.log(`Server running on port ${PORT}`);
 });
