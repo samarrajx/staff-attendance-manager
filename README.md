@@ -1,186 +1,234 @@
-
 # 📊 Staff Attendance Manager
 
-A full-stack Staff Attendance Management System built with **Node.js, Express, and SQLite**.
-Designed to manage employee attendance, generate monthly reports, and provide real-time analytics through a clean admin dashboard.
+A full-stack role-based attendance management system built with:
 
----
+- Node.js + Express
+- PostgreSQL (Supabase)
+- Session-based Authentication
+- Role-Based Access Control (Admin / Manager / Employee)
+- Mobile-Optimized UI
 
-## 🌐 Live Demo
-
-🔗 [https://staff-attendance-manager.onrender.com](https://staff-attendance-manager.onrender.com)
-
-### 🔐 Demo Login
-
-```
-Username: admin
-Password: admin123
-```
+Live Demo:
+https://staff-attendance-manager.onrender.com
 
 ---
 
 ## 🚀 Features
 
-### 🔑 Authentication & Security
+### 🔐 Authentication
+- Secure session-based login
+- bcrypt password hashing
+- Admin-controlled password reset
+- User self password change
 
-* Session-based authentication
-* Secure password hashing using **bcrypt**
-* Role-based access (Admin / Staff)
-* Protected API routes
+### 👥 Role-Based Access Control
 
-### 👥 Staff Management
-
-* Add / Edit / Delete staff
-* Department & position management
-* Search & filter functionality
-
-### 📅 Attendance System
-
-* Mark: Present / Absent / Half Day
-* Holiday management
-* Weekend detection
-* Real-time status tracking
-
-### 📊 Dashboard Analytics
-
-* Live attendance summary
-* Pie chart visualization (Chart.js)
-* Staff status overview
-
-### 📈 Monthly Reports
-
-* Department-wise filtering
-* Excel export (XLSX)
-* PDF export (jsPDF + AutoTable)
-* Attendance legend system
+| Feature | Admin | Manager | Employee |
+|----------|--------|----------|------------|
+| Dashboard | ✅ | ✅ | ✅ |
+| Mark Attendance | ✅ | ✅ | ❌ |
+| Staff Management | ✅ | ❌ | ❌ |
+| Holiday Management | ✅ | ❌ | ❌ |
+| Monthly Report | ✅ | ✅ | Own Only |
+| Monthly Overview | ✅ | ✅ | ✅ |
 
 ---
 
-## 🛠 Tech Stack
+## 🏗 Tech Stack
 
-### Backend
+Backend:
+- Express.js
+- PostgreSQL (Supabase)
+- express-session
+- bcrypt
 
-* Node.js
-* Express.js
-* better-sqlite3
-* express-session
-* bcrypt
-* uuid
+Frontend:
+- Vanilla JavaScript
+- Fetch API
+- Mobile-optimized UI
 
-### Frontend
-
-* Vanilla JavaScript
-* Chart.js
-* XLSX
-* jsPDF
-
-### Deployment
-
-* Render (Web Service)
-* GitHub (Version Control)
+Deployment:
+- Render (Web Service)
+- Supabase (Database)
 
 ---
 
-## 🏗 Architecture Overview
+## ⚙️ Environment Variables
+
+Create a `.env` file locally:
 
 ```
-staff-attendance-manager/
-│
-├── server.js            # Express server & API routes
-├── db.js                # SQLite database layer
-├── package.json
-├── public/
-│   ├── index.html       # Main dashboard
-│   ├── login.html       # Login page
-│   ├── css/style.css
-│   └── js/app.js
-└── .gitignore
+
+DATABASE_URL=your_supabase_connection_string
+SESSION_SECRET=long_random_string
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=StrongPasswordHere
+DEFAULT_USER_PASSWORD=ChangeMe123
+
 ```
 
-* Backend handles authentication, database queries, and report generation.
-* Frontend communicates via REST API.
-* SQLite used for lightweight persistent storage.
-* Session middleware protects private routes.
+⚠ Never commit `.env` to GitHub.
+
+On Render:
+Add the same variables under **Environment → Add Variable**.
 
 ---
 
-## ⚙️ Local Installation
+## 🛠 Installation (Local Setup)
 
-Clone the repository:
+1. Clone repository:
 
-```bash
-git clone https://github.com/samarrajx/staff-attendance-manager.git
+```
+
+git clone [https://github.com/samarrajx/staff-attendance-manager.git](https://github.com/samarrajx/staff-attendance-manager.git)
 cd staff-attendance-manager
+
 ```
 
-Install dependencies:
+2. Install dependencies:
 
-```bash
+```
+
 npm install
+
 ```
 
-Run the server:
+3. Start server:
 
-```bash
+```
+
 npm start
-```
-
-Visit:
 
 ```
-http://localhost:3000
+
+4. Open:
+
+```
+
+[http://localhost:3000](http://localhost:3000)
+
+````
+
+---
+
+## 🗄 Database Structure
+
+### users
+
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'employee',
+  staff_id TEXT
+);
+````
+
+### staff
+
+```sql
+CREATE TABLE staff (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  dept TEXT,
+  position TEXT
+);
+```
+
+### attendance
+
+```sql
+CREATE TABLE attendance (
+  staff_id TEXT,
+  date DATE,
+  status TEXT,
+  updated_at TIMESTAMP DEFAULT NOW(),
+  PRIMARY KEY (staff_id, date)
+);
+```
+
+### holidays
+
+```sql
+CREATE TABLE holidays (
+  date DATE PRIMARY KEY,
+  name TEXT
+);
 ```
 
 ---
 
-## 🔐 Default Admin (Local)
+## 🔒 Security Design
 
-If running locally for the first time:
-
-```
-Username: admin
-Password: Samarraj@12
-```
-
----
-
-## 📌 Key Engineering Decisions
-
-* Used `better-sqlite3` for synchronous high-performance SQLite operations.
-* Session-based authentication for simplicity and security.
-* Modular database abstraction in `db.js`.
-* Export functionality implemented without heavy frameworks.
-* Clean dark UI design with responsive layout.
+* Passwords hashed with bcrypt
+* Session cookies (httpOnly)
+* Role-based middleware protection
+* Backend validation for all protected routes
+* Environment variable secrets
 
 ---
 
-## 🚀 Future Improvements
+## 📡 API Overview
 
-* PostgreSQL migration for production scalability
-* Redis session store
-* JWT-based authentication
-* Role-specific dashboards
-* Audit logs & attendance history tracking
-* Persistent storage setup for cloud environments
+### Auth
+
+* POST `/api/login`
+* POST `/api/logout`
+* GET `/api/me`
+* POST `/api/reset-password`
+
+### Admin
+
+* POST `/api/admin/reset-user-password`
+* POST `/api/staff`
+* PUT `/api/staff/:id`
+* DELETE `/api/staff/:id`
+* POST `/api/holidays`
+* DELETE `/api/holidays`
+
+### Attendance
+
+* GET `/api/attendance`
+* GET `/api/attendance/month`
+* POST `/api/attendance`
+* DELETE `/api/attendance`
+
+### Health
+
+* GET `/api/health`
 
 ---
 
-## 👨‍💻 Author
+## 📱 Mobile Optimized
 
-**Samar Raj**
-Full-Stack Developer | Backend Systems | Data Automation
-
-GitHub: [https://github.com/samarrajx](https://github.com/samarrajx)
+* Responsive layout
+* Installable as PWA (optional)
+* Optimized for phone use
 
 ---
 
-# 💡 Project Purpose
+## ⚠ Production Notes
 
-This project demonstrates:
+Current session store uses MemoryStore (development only).
 
-* Full-stack system design
-* Authentication & authorization
-* Database schema design
-* Report generation
-* Deployment to cloud environment
-* Production-ready project structuring
+Recommended upgrade:
+
+* PostgreSQL session store (`connect-pg-simple`)
+* Rate limiting on login
+* Account lock after failed attempts
+
+---
+
+## 👤 Author
+
+Samar Raj
+
+GitHub:
+[https://github.com/samarrajx](https://github.com/samarrajx)
+
+---
+
+## 📄 License
+
+Private / Internal Use

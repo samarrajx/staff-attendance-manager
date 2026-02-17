@@ -212,6 +212,92 @@ app.delete('/api/staff/:id', requireRole(['admin']), async (req,res)=>{
 });
 
 // ─────────────────────────────────────────
+// ADMIN RESET USER PASSWORD
+// ─────────────────────────────────────────
+app.post('/api/admin/reset-user-password', requireRole(['admin']), async (req, res) => {
+  try {
+    const { staffId } = req.body;
+
+    const cleanUsername = staffId.toLowerCase();
+
+    const tempPassword = process.env.DEFAULT_USER_PASSWORD || 'ChangeMe123';
+    const hashed = await bcrypt.hash(tempPassword, 10);
+
+    const before = await db.query(
+      'SELECT password FROM users WHERE username=$1',
+      [cleanUsername]
+    );
+
+    console.log("BEFORE HASH:", before.rows[0]?.password);
+
+    const result = await db.query(
+      'UPDATE users SET password=$1 WHERE username=$2',
+      [hashed, cleanUsername]
+    );
+
+    console.log("Rows updated:", result.rowCount);
+
+    const after = await db.query(
+      'SELECT password FROM users WHERE username=$1',
+      [cleanUsername]
+    );
+
+    console.log("AFTER HASH:", after.rows[0]?.password);
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
+  }
+});
+
+// ─────────────────────────────────────────
+// USER CHANGE OWN PASSWORD
+// ─────────────────────────────────────────
+
+app.post('/api/reset-password', requireAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false });
+    }
+
+    const { rows } = await db.query(
+      'SELECT * FROM users WHERE id=$1',
+      [req.session.user.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({ success: false });
+    }
+
+    const user = rows[0];
+
+    const valid = await bcrypt.compare(currentPassword, user.password);
+
+    if (!valid) {
+      return res.status(401).json({ success: false, error: 'Incorrect current password' });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await db.query(
+      'UPDATE users SET password=$1 WHERE id=$2',
+      [hashed, user.id]
+    );
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error("Change password error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+
+// ─────────────────────────────────────────
 // ATTENDANCE
 // ─────────────────────────────────────────
 
@@ -328,6 +414,9 @@ app.use(express.static(path.join(__dirname,'public')));
 // ─────────────────────────────────────────
 // START
 // ─────────────────────────────────────────
+app.get('/api/health', (req,res)=>{
+  res.json({ status: 'ok' });
+});
 
 app.listen(PORT, async ()=>{
   await ensureAdmin();

@@ -51,10 +51,14 @@ function showToast(msg) {
 // ─── SERVER STATUS CHECK ───
 async function pingServer() {
   try {
-    await fetch('/api/staff'); // Simple GET to test connection
+    const res = await fetch('/api/health');
+
+    if (!res.ok) throw new Error();
+
     document.getElementById('serverDot').classList.remove('off');
     document.getElementById('serverLabel').textContent = 'Connected';
     return true;
+
   } catch {
     document.getElementById('serverDot').classList.add('off');
     document.getElementById('serverLabel').textContent = 'No connection';
@@ -67,28 +71,42 @@ async function pingServer() {
 // ═══════════════════════════════════════════════════════
 
 async function fetchStaff() {
-  const res = await fetch('/api/staff');
+  const res = await fetch('/api/staff', {
+    credentials: 'include'   // ⭐ REQUIRED
+  });
+
   const json = await res.json();
   staffList = json.data;
   return staffList;
 }
 
 async function fetchHolidays() {
-  const res = await fetch('/api/holidays');
+  const res = await fetch('/api/holidays', {
+    credentials: 'include'   // ⭐ REQUIRED
+  });
+
   const json = await res.json();
-  holidayDates = json.data;   // keep full objects (date + name)
+  holidayDates = json.data;
   return holidayDates;
 }
 
+
 async function fetchDepts() {
-  const res = await fetch('/api/staff/departments');
+  const res = await fetch('/api/staff/departments', {
+    credentials: 'include'   // ⭐ REQUIRED
+  });
+
   return (await res.json()).data;
 }
 
+
 async function fetchAttendance(date) {
-  const res = await fetch('/api/attendance?date=' + date);
+  const res = await fetch('/api/attendance?date=' + date, {
+    credentials: 'include'   // ⭐ REQUIRED
+  });
+
   const json = await res.json();
-  attCache[date] = json.data; // Update cache
+  attCache[date] = json.data;
   return json.data;
 }
 
@@ -102,6 +120,7 @@ async function fetchMonthAttendance(year, month) {
 async function postAttendance(staffId, date, status) {
   const res = await fetch('/api/attendance', {
     method: 'POST',
+    credentials: 'include',   // ⭐ REQUIRED
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ staffId, date, status })
   });
@@ -111,6 +130,7 @@ async function postAttendance(staffId, date, status) {
 async function deleteAttendance(staffId, date) {
   const res = await fetch('/api/attendance', {
     method: 'DELETE',
+    credentials: 'include',   // ⭐ REQUIRED
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ staffId, date })
   });
@@ -120,9 +140,11 @@ async function deleteAttendance(staffId, date) {
 async function postStaff(staff) {
   const res = await fetch('/api/staff', {
     method: 'POST',
+    credentials: 'include',   // ⭐ REQUIRED
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(staff)
   });
+
   return await res.json();
 }
 
@@ -162,58 +184,46 @@ function applyEmployeeView() {
 // ═══════════════════════════════════════════════════════
 // APP INITIALIZATION & NAVIGATION
 // ═══════════════════════════════════════════════════════
-
 async function init() {
-  // Get logged-in user info
-const res = await fetch('/api/me');
-const data = await res.json();
 
-if (data.success) {
+  const res = await fetch('/api/me', {
+    credentials: 'include'
+  });
+
+  const data = await res.json();
+
+  if (!data.success) {
+    window.location.href = '/';
+    return;
+  }
+
+  // ⭐ DECLARE role FIRST
   const role = data.user.role;
 
-  if (role === 'employee') {
-    applyEmployeeView();
-  }
-}
+  // ⭐ THEN use it
+  applyRoleUI(role);
 
-  // Set today's date in top bar
+  // Continue normal initialization
   document.getElementById('currentDateDisplay').textContent = formatDate(today());
   document.getElementById('markDate').value = today();
 
-  // Start the live clock for the dashboard
   setInterval(updateLiveClock, 1000);
   updateLiveClock();
 
-  // Check connectivity
   const connected = await pingServer();
   if (!connected) {
     showToast('⚠️ Server not running — start it with: npm start');
     return;
   }
 
-  // Initial data load
   await fetchHolidays();
   await loadHolidayList();
   await fetchStaff();
 
-  // Seed sample data if database is empty (First Run Experience)
-  if (staffList.length === 0) {
-    const samples = [
-      { id: 'EMP001', name: 'Rahul Sharma', dept: 'Sales', position: 'Sales Manager' },
-      { id: 'EMP002', name: 'Priya Mehta', dept: 'HR', position: 'HR Coordinator' },
-      { id: 'EMP003', name: 'Ajay Kumar', dept: 'IT', position: 'Developer' },
-      { id: 'EMP004', name: 'Sneha Patel', dept: 'IT', position: 'QA Engineer' },
-      { id: 'EMP005', name: 'Vikram Rao', dept: 'Sales', position: 'Sales Rep' },
-      { id: 'EMP006', name: 'Anita Desai', dept: 'Finance', position: 'Accountant' },
-    ];
-    for (const s of samples) await postStaff(s);
-    await fetchStaff();
-    showToast('Sample staff loaded — feel free to edit!');
-  }
-
-  // Load the dashboard view by default
   renderDashboard();
 }
+
+
 
 // Update the HH:MM clock on the dashboard
 function updateLiveClock() {
@@ -418,10 +428,12 @@ async function addHoliday() {
   }
 
   await fetch('/api/holidays', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ date, name })
-  });
+  method: 'POST',
+  credentials: 'include',   // ⭐ REQUIRED
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ date, name })
+ });
+
 
   showToast('Holiday added');
   await loadHolidayList();
@@ -462,6 +474,7 @@ async function loadHolidayList() {
 async function removeHoliday(date) {
   await fetch('/api/holidays', {
     method: 'DELETE',
+    credentials: 'include',   // ⭐ REQUIRED
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date })
   });
@@ -521,7 +534,11 @@ async function renderMarkPage() {
 }
 
 async function logout() {
-  const res = await fetch('/api/logout', { method: 'POST' });
+  const res = await fetch('/api/logout', {
+    method: 'POST',
+    credentials: 'include'   // ⭐ REQUIRED
+  });
+
   const data = await res.json();
 
   if (data.success) {
@@ -530,6 +547,7 @@ async function logout() {
     showToast('Logout failed');
   }
 }
+
 
 async function setAttendance(date, staffId, status) {
   const dayAtt = attCache[date] || {};
@@ -631,10 +649,11 @@ async function deleteStaff(id) {
 }
 
 async function resetUserPassword(staffId) {
-  if (!confirm('Reset password to default (sam123456)?')) return;
+  if (!confirm('Reset password to default (ChangeMe123)?')) return;
 
   const res = await fetch('/api/admin/reset-user-password', {
     method: 'POST',
+    credentials: 'include',   // ⭐ IMPORTANT
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ staffId })
   });
@@ -642,9 +661,9 @@ async function resetUserPassword(staffId) {
   const data = await res.json();
 
   if (data.success) {
-    showToast('Password reset to default ✓');
+    alert('Password reset successfully.');
   } else {
-    showToast(data.error);
+    alert('Reset failed.');
   }
 }
 
@@ -1769,6 +1788,34 @@ async function downloadPDF() {
   showToast("SANJIVANI Official Monthly PDF downloaded ✓");
 }
 
+// ─────────────────────────────────────────
+// ROLE-BASED UI CONTROL
+// ─────────────────────────────────────────
+
+function applyRoleUI(role) {
+
+  if (role === 'admin') {
+    return; // Full access
+  }
+
+  if (role === 'manager') {
+    hideTab('staff');
+    hideTab('holiday');
+    return;
+  }
+
+  if (role === 'employee') {
+    hideTab('mark');
+    hideTab('staff');
+    hideTab('holiday');
+    return;
+  }
+}
+
+function hideTab(name) {
+  const el = document.getElementById(`tab-${name}`);
+  if (el) el.style.display = 'none';
+}
 
 
 // ─── HOLIDAY UI TOGGLE ───
@@ -1808,11 +1855,13 @@ async function resetPassword() {
     return;
   }
 
-  const res = await fetch('/api/reset-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ currentPassword, newPassword })
-  });
+const res = await fetch('/api/reset-password', {
+  method: 'POST',
+  credentials: 'include',   // ⭐ VERY IMPORTANT
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ currentPassword, newPassword })
+});
+
 
   const data = await res.json();
 
