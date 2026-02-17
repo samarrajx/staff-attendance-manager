@@ -3,8 +3,19 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="description" content="Enterprise staff attendance tracking and management system">
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="/manifest.json">
+
+<!-- Theme Colors -->
 <meta name="theme-color" content="#0f1117">
+
+<!-- Apple iOS -->
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Attendance">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 
 <title>Staff Attendance Manager</title>
 <link rel="icon" type="image/x-icon" href="/images-favicon.ico">
@@ -27,6 +38,11 @@
 
   <button class="btn btn-outline" onclick="openPasswordModal()">
     Reset Password
+  </button>
+
+  <button id="installBtn" class="btn btn-primary" onclick="installApp()" style="display:none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7 7 7-7"/></svg>
+    Install App
   </button>
 
   <button class="btn btn-danger" onclick="logout()">

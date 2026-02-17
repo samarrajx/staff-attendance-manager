@@ -1,13 +1,83 @@
 console.log("APP.JS LOADED");
+
+// ═══════════════════════════════════════════════════════
+// PWA - SERVICE WORKER REGISTRATION
+// ═══════════════════════════════════════════════════════
+
+// Register service worker for offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then(registration => {
+        console.log('[PWA] Service Worker registered:', registration.scope);
+      })
+      .catch(error => {
+        console.log('[PWA] Service Worker registration failed:', error);
+      });
+  });
+}
+
+// PWA Install Prompt
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  console.log('[PWA] Install prompt available');
+  e.preventDefault();
+  deferredPrompt = e;
+
+  // Show install button
+  const installBtn = document.getElementById('installBtn');
+  if (installBtn) {
+    installBtn.style.display = 'inline-flex';
+  }
+});
+
+// Install App function (called by button onclick)
+function installApp() {
+  if (!deferredPrompt) {
+    showToast('App is already installed or cannot be installed');
+    return;
+  }
+
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then((choiceResult) => {
+    if (choiceResult.outcome === 'accepted') {
+      console.log('[PWA] User accepted the install prompt');
+      showToast('App installed successfully!');
+    } else {
+      console.log('[PWA] User dismissed the install prompt');
+    }
+    deferredPrompt = null;
+
+    // Hide install button after prompt
+    const installBtn = document.getElementById('installBtn');
+    if (installBtn) {
+      installBtn.style.display = 'none';
+    }
+  });
+}
+
+// Detect if app is already installed
+window.addEventListener('appinstalled', () => {
+  console.log('[PWA] App was installed');
+  showToast('App installed! You can now use it offline.');
+  deferredPrompt = null;
+
+  const installBtn = document.getElementById('installBtn');
+  if (installBtn) {
+    installBtn.style.display = 'none';
+  }
+});
+
 // ═══════════════════════════════════════════════════════
 // STAFF ATTENDANCE MANAGER — CLIENT SIDE CONTROLLER
 // ═══════════════════════════════════════════════════════
 
 // ─── IN-MEMORY CACHE ───
 // We maintain local state to reduce API load and improve responsiveness.
-let staffList    = [];
-let attCache     = {};  // Cache for daily attendance: { "YYYY-MM-DD": { staffId: status } }
-let monthCache   = {};  // Cache for monthly reports: { "YYYY-MM": { staffId: status } }
+let staffList = [];
+let attCache = {};  // Cache for daily attendance: { "YYYY-MM-DD": { staffId: status } }
+let monthCache = {};  // Cache for monthly reports: { "YYYY-MM": { staffId: status } }
 let holidayDates = [];  // Array of holiday date strings ["YYYY-MM-DD"]
 
 // ─── HELPER FUNCTIONS ───
@@ -282,9 +352,9 @@ function switchTab(name) {
   }
 
   if (name === 'overview') {
-  populateOverviewSelectors();
-  renderMonthlyOverview();
-}
+    populateOverviewSelectors();
+    renderMonthlyOverview();
+  }
 
 }
 
@@ -321,14 +391,14 @@ let overviewChart = null;
 
 
 async function renderDashboard() {
-await fetchStaff();
-await fetchAttendance(today());
-const dayAtt = attCache[today()] || {};
+  await fetchStaff();
+  await fetchAttendance(today());
+  const dayAtt = attCache[today()] || {};
 
 
   // 1. Calculate Statistics
   let counts = { present: 0, absent: 0, halfday: 0, holiday: 0, weekend: 0, unmarked: 0 };
-  
+
   staffList.forEach(s => {
     const st = dayAtt[s.id];
     if (st) counts[st]++;
@@ -348,14 +418,14 @@ const dayAtt = attCache[today()] || {};
   // 3. Render Chart.js Doughnut Chart
   const ctx = document.getElementById('pieChart').getContext('2d');
   if (pieChart) pieChart.destroy(); // Prevent canvas reuse errors
-  
+
   const labels = [], data = [], colors = [];
-  
+
   // Push data conditionally to keep chart clean
   if (counts.present) { labels.push('Present'); data.push(counts.present); colors.push('#34d399'); }
-  if (counts.absent)  { labels.push('Absent');  data.push(counts.absent);  colors.push('#f87171'); }
+  if (counts.absent) { labels.push('Absent'); data.push(counts.absent); colors.push('#f87171'); }
   if (counts.halfday) { labels.push('Half Day'); data.push(counts.halfday); colors.push('#fbbf24'); }
-  if (counts.unmarked){ labels.push('Unmarked'); data.push(counts.unmarked); colors.push('#252a36'); }
+  if (counts.unmarked) { labels.push('Unmarked'); data.push(counts.unmarked); colors.push('#252a36'); }
 
   pieChart = new Chart(ctx, {
     type: 'doughnut',
@@ -393,14 +463,14 @@ const dayAtt = attCache[today()] || {};
     el.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;">No staff yet.</div>';
     return;
   }
-  
+
   el.innerHTML = staffList.map(s => {
     const st = dayAtt[s.id] || 'unmarked';
-    
+
     // Create pretty label
     let label = st.charAt(0).toUpperCase() + st.slice(1);
     if (st === 'halfday') label = 'Half Day';
-    
+
     // Generate List Item HTML
     return `
       <div class="list-item">
@@ -428,19 +498,19 @@ async function addHoliday() {
   }
 
   await fetch('/api/holidays', {
-  method: 'POST',
-  credentials: 'include',   // ⭐ REQUIRED
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ date, name })
- });
+    method: 'POST',
+    credentials: 'include',   // ⭐ REQUIRED
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date, name })
+  });
 
 
   showToast('Holiday added');
   await loadHolidayList();
-  
+
   // Refresh views if currently active
-  if(document.getElementById('page-mark').classList.contains('active')) renderMarkPage();
-  if(document.getElementById('page-report').classList.contains('active')) renderReport();
+  if (document.getElementById('page-mark').classList.contains('active')) renderMarkPage();
+  if (document.getElementById('page-report').classList.contains('active')) renderReport();
 }
 
 async function loadHolidayList() {
@@ -481,10 +551,10 @@ async function removeHoliday(date) {
 
   showToast('Holiday removed');
   await loadHolidayList();
-  
+
   // Refresh views
-  if(document.getElementById('page-mark').classList.contains('active')) renderMarkPage();
-  if(document.getElementById('page-report').classList.contains('active')) renderReport();
+  if (document.getElementById('page-mark').classList.contains('active')) renderMarkPage();
+  if (document.getElementById('page-report').classList.contains('active')) renderReport();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -510,7 +580,7 @@ async function renderMarkPage() {
   }
 
   const statuses = ['present', 'absent', 'halfday', 'holiday', 'weekend'];
-  const labels   = ['Present', 'Absent', 'Half Day', 'Holiday', 'Weekend'];
+  const labels = ['Present', 'Absent', 'Half Day', 'Holiday', 'Weekend'];
 
   // Render Grid
   document.getElementById('attGrid').innerHTML = filtered.map(s => {
@@ -551,7 +621,7 @@ async function logout() {
 
 async function setAttendance(date, staffId, status) {
   const dayAtt = attCache[date] || {};
-  
+
   // If clicking the same status, toggle it off (delete)
   if (dayAtt[staffId] === status) {
     await deleteAttendance(staffId, date);
@@ -562,7 +632,7 @@ async function setAttendance(date, staffId, status) {
     if (!attCache[date]) attCache[date] = {};
     attCache[date][staffId] = status;
   }
-  
+
   showToast('Attendance updated');
   renderMarkPage(); // Re-render to show active state
 }
@@ -570,15 +640,15 @@ async function setAttendance(date, staffId, status) {
 async function markAllPresent() {
   const date = document.getElementById('markDate').value || today();
   const dept = document.getElementById('markDeptFilter').value;
-  
+
   const filtered = dept === 'All' ? staffList : staffList.filter(s => s.dept === dept);
-  
+
   for (const s of filtered) {
     await postAttendance(s.id, date, 'present');
     if (!attCache[date]) attCache[date] = {};
     attCache[date][s.id] = 'present';
   }
-  
+
   showToast('All marked as Present');
   renderMarkPage();
 }
@@ -599,11 +669,11 @@ function closeStaffModal() {
 }
 
 async function saveStaff() {
-  const name     = document.getElementById('staffName').value.trim();
-  const id       = document.getElementById('staffId').value.trim();
-  const dept     = document.getElementById('staffDept').value.trim();
+  const name = document.getElementById('staffName').value.trim();
+  const id = document.getElementById('staffId').value.trim();
+  const dept = document.getElementById('staffDept').value.trim();
   const position = document.getElementById('staffPosition').value.trim();
-  const editId   = document.getElementById('editStaffId').value;
+  const editId = document.getElementById('editStaffId').value;
 
   if (!name || !id) { showToast('Name and Staff ID are required'); return; }
 
@@ -618,7 +688,7 @@ async function saveStaff() {
     if (res.success) showToast('Staff added');
     else { showToast(res.error); return; }
   }
-  
+
   closeStaffModal();
   await fetchStaff();
   populateDeptFilters();
@@ -626,24 +696,24 @@ async function saveStaff() {
 }
 
 function editStaff(id) {
-  const s = staffList.find(x => x.id === id); 
+  const s = staffList.find(x => x.id === id);
   if (!s) return;
-  
+
   document.getElementById('staffModalTitle').textContent = 'Edit Staff';
-  document.getElementById('editStaffId').value   = id;
-  document.getElementById('staffName').value     = s.name;
-  document.getElementById('staffId').value       = s.id;
-  document.getElementById('staffDept').value     = s.dept || '';
+  document.getElementById('editStaffId').value = id;
+  document.getElementById('staffName').value = s.name;
+  document.getElementById('staffId').value = s.id;
+  document.getElementById('staffDept').value = s.dept || '';
   document.getElementById('staffPosition').value = s.position || '';
   document.getElementById('staffModal').classList.add('show');
 }
 
 async function deleteStaff(id) {
-  if(!confirm('Are you sure you want to delete this staff member?')) return;
-  
+  if (!confirm('Are you sure you want to delete this staff member?')) return;
+
   const res = await deleteStaffAPI(id);
   if (res.success) showToast('Staff removed');
-  
+
   await fetchStaff();
   renderStaffTable();
 }
@@ -670,8 +740,8 @@ async function resetUserPassword(staffId) {
 async function renderStaffTable() {
   await fetchStaff();
   const search = document.getElementById('staffSearch').value.toLowerCase();
-  const dept   = document.getElementById('staffDeptFilter').value;
-  
+  const dept = document.getElementById('staffDeptFilter').value;
+
   let filtered = staffList.filter(s => {
     if (dept !== 'All' && s.dept !== dept) return false;
     return s.name.toLowerCase().includes(search) || s.id.toLowerCase().includes(search);
@@ -683,9 +753,9 @@ async function renderStaffTable() {
     document.getElementById('staffEmpty').textContent = staffList.length === 0 ? 'No staff added yet. Click "Add Staff" to begin.' : 'No results match your filters.';
     return;
   }
-  
+
   document.getElementById('staffEmpty').textContent = '';
-  
+
   tbody.innerHTML = filtered.map((s, i) => `
     <tr>
       <td style="color:var(--text-muted)">${i + 1}</td>
@@ -724,7 +794,7 @@ async function renderStaffTable() {
 function populateReportSelectors() {
   const now = new Date();
   document.getElementById('reportMonth').innerHTML = MONTHS.map((m, i) => `<option value="${i}" ${i === now.getMonth() ? 'selected' : ''}>${m}</option>`).join('');
-  
+
   let yHtml = '';
   for (let y = now.getFullYear() - 2; y <= now.getFullYear() + 1; y++) {
     yHtml += `<option value="${y}" ${y === now.getFullYear() ? 'selected' : ''}>${y}</option>`;
@@ -735,9 +805,9 @@ function populateReportSelectors() {
 
 async function renderReport() {
   const month = parseInt(document.getElementById('reportMonth').value);
-  const year  = parseInt(document.getElementById('reportYear').value);
-  const dept  = document.getElementById('reportDeptFilter').value;
-  const days  = getDaysInMonth(year, month);
+  const year = parseInt(document.getElementById('reportYear').value);
+  const dept = document.getElementById('reportDeptFilter').value;
+  const days = getDaysInMonth(year, month);
 
   await fetchStaff();
   await fetchHolidays();
@@ -771,32 +841,32 @@ async function renderReport() {
           <div><div>${s.name}</div><div style="font-size:11px;color:var(--text-muted);">${s.dept || '—'}</div></div>
         </div>
       </td>`;
-      
+
     let pC = 0, aC = 0, hC = 0; // Per-staff counters
-    
+
     for (let d = 1; d <= days; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      
+
       // Determine status: Manual Entry > Holiday > Weekend
       let st = (monthData[dateStr] || {})[s.id];
       if (!st) {
         if (holidayDates.some(h => h.date === dateStr)) st = 'holiday';
         else if (isWeekend(year, month, d)) st = 'weekend';
       }
-      
+
       const abbr = { present: 'P', absent: 'A', halfday: 'H', holiday: 'Ho', weekend: 'W' }[st] || '—';
       const cellClass = st ? 'cell-' + st : 'cell-empty';
 
       // Update global stats
       if (st === 'present') { pC++; totals.present++; }
-      if (st === 'absent')  { aC++; totals.absent++; }
+      if (st === 'absent') { aC++; totals.absent++; }
       if (st === 'halfday') { hC++; totals.halfday++; }
       if (st === 'holiday') totals.holiday++;
       if (st === 'weekend') totals.weekend++;
 
       row += `<td class="${cellClass}" style="font-size:12px;">${abbr}</td>`;
     }
-    
+
     row += `<td style="position:sticky;right:0;background:var(--card);font-weight:700;font-size:13px;color:var(--green);">${pC}<span style="font-size:10px;color:var(--text-muted);font-weight:500;"> / ${days - hC}</span></td></tr>`;
     bodyHtml += row;
   });
@@ -838,8 +908,8 @@ async function renderMonthlyOverview() {
   console.log("OVERVIEW FUNCTION CALLED");
 
   const monthSelect = document.getElementById('overviewMonth');
-  const yearSelect  = document.getElementById('overviewYear');
-  const deptSelect  = document.getElementById('overviewDeptFilter');
+  const yearSelect = document.getElementById('overviewYear');
+  const deptSelect = document.getElementById('overviewDeptFilter');
 
   if (!monthSelect || !yearSelect || !deptSelect) {
     console.log("Selectors not ready yet");
@@ -847,15 +917,15 @@ async function renderMonthlyOverview() {
   }
 
   const month = parseInt(monthSelect.value);
-  const year  = parseInt(yearSelect.value);
-  const dept  = deptSelect.value;
+  const year = parseInt(yearSelect.value);
+  const dept = deptSelect.value;
 
   const monthName = MONTHS[month];
-const deptName = dept === 'All' ? '' : ` • ${dept}`;
-const titleEl = document.getElementById('overviewTitle');
+  const deptName = dept === 'All' ? '' : ` • ${dept}`;
+  const titleEl = document.getElementById('overviewTitle');
 
-if (titleEl) {
-  titleEl.innerHTML = `
+  if (titleEl) {
+    titleEl.innerHTML = `
     <span style="color:var(--text-muted); font-weight:500;">
       ${monthName} ${year}${deptName}
     </span>
@@ -864,7 +934,7 @@ if (titleEl) {
       Attendance Summary
     </span>
   `;
-}
+  }
 
   if (isNaN(month) || isNaN(year)) {
     console.log("Month/Year invalid");
@@ -874,7 +944,7 @@ if (titleEl) {
   const days = getDaysInMonth(year, month);
 
   await fetchStaff();
-  
+
 
   await fetchHolidays();
   const monthData = await fetchMonthAttendance(year, month);
@@ -903,7 +973,7 @@ if (titleEl) {
       }
 
       if (st === 'present') pC++;
-      if (st === 'absent')  aC++;
+      if (st === 'absent') aC++;
       if (st === 'halfday') hC++;
     }
 
@@ -933,12 +1003,12 @@ if (titleEl) {
 
   const labels = [];
   const presentData = [];
-  const absentData  = [];
-  const halfData    = [];
+  const absentData = [];
+  const halfData = [];
 
   let totalPresent = 0;
-  let totalAbsent  = 0;
-  let totalHalf    = 0;
+  let totalAbsent = 0;
+  let totalHalf = 0;
 
   let tableHTML = '';
 
@@ -950,8 +1020,8 @@ if (titleEl) {
     halfData.push(s.half);
 
     totalPresent += s.present;
-    totalAbsent  += s.absent;
-    totalHalf    += s.half;
+    totalAbsent += s.absent;
+    totalHalf += s.half;
 
     tableHTML += `
       <tr>
@@ -1075,8 +1145,8 @@ function toggleOverviewGraph() {
 async function downloadOverviewExcel() {
 
   const month = parseInt(document.getElementById('overviewMonth').value);
-  const year  = parseInt(document.getElementById('overviewYear').value);
-  const dept  = document.getElementById('overviewDeptFilter').value;
+  const year = parseInt(document.getElementById('overviewYear').value);
+  const dept = document.getElementById('overviewDeptFilter').value;
 
   await fetchStaff();
   await fetchHolidays();
@@ -1151,7 +1221,7 @@ async function downloadOverviewExcel() {
       }
 
       if (st === 'present') pC++;
-      if (st === 'absent')  aC++;
+      if (st === 'absent') aC++;
       if (st === 'halfday') hC++;
     }
 
@@ -1236,8 +1306,8 @@ async function downloadOverviewExcel() {
 async function downloadOverviewPDF() {
 
   const month = parseInt(document.getElementById('overviewMonth').value);
-  const year  = document.getElementById('overviewYear').value;
-  const dept  = document.getElementById('overviewDeptFilter').value;
+  const year = document.getElementById('overviewYear').value;
+  const dept = document.getElementById('overviewDeptFilter').value;
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF("p", "mm", "a4");
@@ -1336,8 +1406,8 @@ async function downloadOverviewPDF() {
   const stats = document.querySelectorAll('#overviewStats .stat-value');
 
   const totalPresent = stats[0]?.textContent || 0;
-  const totalAbsent  = stats[1]?.textContent || 0;
-  const totalHalf    = stats[2]?.textContent || 0;
+  const totalAbsent = stats[1]?.textContent || 0;
+  const totalHalf = stats[2]?.textContent || 0;
 
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
@@ -1420,8 +1490,8 @@ async function downloadOverviewPDF() {
 async function downloadExcel() {
 
   const month = parseInt(document.getElementById('reportMonth').value);
-  const year  = parseInt(document.getElementById('reportYear').value);
-  const dept  = document.getElementById('reportDeptFilter').value;
+  const year = parseInt(document.getElementById('reportYear').value);
+  const dept = document.getElementById('reportDeptFilter').value;
 
   await fetchStaff();
   await fetchHolidays();
@@ -1514,7 +1584,7 @@ async function downloadExcel() {
       values.push(symbol);
 
       if (st === 'present') pC++;
-      if (st === 'absent')  aC++;
+      if (st === 'absent') aC++;
       if (st === 'halfday') hC++;
     }
 
@@ -1594,8 +1664,8 @@ async function downloadExcel() {
 async function downloadPDF() {
 
   const month = parseInt(document.getElementById('reportMonth').value);
-  const year  = parseInt(document.getElementById('reportYear').value);
-  const dept  = document.getElementById('reportDeptFilter').value;
+  const year = parseInt(document.getElementById('reportYear').value);
+  const dept = document.getElementById('reportDeptFilter').value;
 
   await fetchStaff();
   await fetchHolidays();
@@ -1743,7 +1813,7 @@ async function downloadPDF() {
       row.push(symbol);
 
       if (st === 'present') pC++;
-      if (st === 'absent')  aC++;
+      if (st === 'absent') aC++;
       if (st === 'halfday') hC++;
     }
 
@@ -1831,7 +1901,7 @@ function toggleHolidayManager() {
 // Close modal when clicking outside of it
 const staffModalEl = document.getElementById('staffModal');
 if (staffModalEl) {
-  staffModalEl.addEventListener('click', function(e) {
+  staffModalEl.addEventListener('click', function (e) {
     if (e.target === this) closeStaffModal();
   });
 }
@@ -1850,19 +1920,19 @@ function closePasswordModal() {
 
 async function resetPassword() {
   const currentPassword = document.getElementById('currentPassword').value.trim();
-  const newPassword     = document.getElementById('newPassword').value.trim();
+  const newPassword = document.getElementById('newPassword').value.trim();
 
   if (!currentPassword || !newPassword) {
     showToast('All fields required');
     return;
   }
 
-const res = await fetch('/api/reset-password', {
-  method: 'POST',
-  credentials: 'include',   // ⭐ VERY IMPORTANT
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ currentPassword, newPassword })
-});
+  const res = await fetch('/api/reset-password', {
+    method: 'POST',
+    credentials: 'include',   // ⭐ VERY IMPORTANT
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
 
 
   const data = await res.json();
