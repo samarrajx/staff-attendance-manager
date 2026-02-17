@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const session = require('express-session');
 const bcrypt  = require('bcrypt');
 const express = require('express');
@@ -11,72 +12,118 @@ const PORT = 3000;
 app.use(express.json());
 
 app.use(session({
-  secret: 'attendance-secret',
+  secret: process.env.SESSION_SECRET,
   resave: false,
-  saveUninitialized: false
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  }
 }));
 
 // ─────────────────────────────────────────
-// ADMIN AUTO CREATE
+// ROLE MIDDLEWARE
 // ─────────────────────────────────────────
+
+function requireAuth(req, res, next) {
+  if (!req.session.user)
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  next();
+}
+
+function requireRole(allowedRoles) {
+  return (req, res, next) => {
+
+    if (!req.session.user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    if (!allowedRoles.includes(req.session.user.role)) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    next();
+  };
+}
+
+// ─────────────────────────────────────────
+// ENV ADMIN CREATION (PostgreSQL SAFE)
+// ─────────────────────────────────────────
+
 async function ensureAdmin() {
+  const adminUser = process.env.ADMIN_USERNAME;
+  const adminPass = process.env.ADMIN_PASSWORD;
+
+  if (!adminUser || !adminPass) return;
+
   const { rows } = await db.query(
-    'SELECT * FROM users WHERE username = $1',
-    ['admin']
+    'SELECT id FROM users WHERE username=$1',
+    [adminUser]
   );
 
   if (rows.length === 0) {
-    const hashed = bcrypt.hashSync('admin123', 10);
+    const hashed = await bcrypt.hash(adminPass, 10);
 
     await db.query(
       'INSERT INTO users (username,password,role,staff_id) VALUES ($1,$2,$3,$4)',
-      ['admin', hashed, 'admin', null]
+      [adminUser, hashed, 'admin', null]
     );
 
-    console.log('Admin created → admin / admin123');
+    console.log('Admin created from ENV');
   }
-}
-
-// ─────────────────────────────────────────
-// MIDDLEWARE
-// ─────────────────────────────────────────
-function requireAuth(req, res, next) {
-  if (!req.session.user)
-    return res.status(401).json({ success: false });
-  next();
-}
-
-function requireAdmin(req, res, next) {
-  if (!req.session.user || req.session.user.role !== 'admin')
-    return res.status(403).json({ success: false });
-  next();
 }
 
 // ─────────────────────────────────────────
 // AUTH
 // ─────────────────────────────────────────
+
 app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
+  try {
+    const { username, password } = req.body;
 
-  const { rows } = await db.query(
-    'SELECT * FROM users WHERE username=$1',
-    [username]
-  );
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username and password required'
+      });
+    }
 
-  const user = rows[0];
-  if (!user) return res.status(401).json({ success:false });
+    const { rows } = await db.query(
+      'SELECT * FROM users WHERE username=$1',
+      [username]
+    );
 
-  if (!bcrypt.compareSync(password, user.password))
-    return res.status(401).json({ success:false });
+    if (rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+    }
 
-  req.session.user = {
-    id: user.id,
-    username: user.username,
-    role: user.role,
-    staffId: user.staff_id
-  };
+    const user = rows[0];
+    const valid = await bcrypt.compare(password, user.password);
 
-  res.json({ success:true });
+    if (!valid) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+    }
+
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      staffId: user.staff_id
+    };
+
+    res.json({ success: true, role: user.role });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
 });
 
 app.post('/api/logout', requireAuth, (req,res)=>{
@@ -91,6 +138,7 @@ app.get('/api/me', requireAuth, (req,res)=>{
 // ─────────────────────────────────────────
 // STAFF
 // ─────────────────────────────────────────
+
 app.get('/api/staff', requireAuth, async (req,res)=>{
   const { rows } = await db.query(
     'SELECT * FROM staff ORDER BY name ASC'
@@ -113,28 +161,39 @@ app.get('/api/staff/departments', requireAuth, async (req,res)=>{
   res.json({ success:true, data:rows.map(r=>r.dept) });
 });
 
-app.post('/api/staff', requireAdmin, async (req,res)=>{
-  const { id,name,dept,position } = req.body;
+app.post('/api/staff', requireRole(['admin']), async (req,res)=>{
+  try {
+    const { id,name,dept,position,role } = req.body;
 
-  if (!id || !name)
-    return res.status(400).json({ success:false });
+    if (!id || !name)
+      return res.status(400).json({ success:false });
 
-  await db.query(
-    'INSERT INTO staff (id,name,dept,position) VALUES ($1,$2,$3,$4)',
-    [id,name,dept||'',position||'']
-  );
+    const safeRole = ['admin','manager','employee'].includes(role)
+      ? role
+      : 'employee';
 
-  const hashed = bcrypt.hashSync('sam123456',10);
+    await db.query(
+      'INSERT INTO staff (id,name,dept,position) VALUES ($1,$2,$3,$4)',
+      [id,name,dept||'',position||'']
+    );
 
-  await db.query(
-    'INSERT INTO users (username,password,role,staff_id) VALUES ($1,$2,$3,$4)',
-    [id.toLowerCase(),hashed,'employee',id]
-  );
+    const tempPassword = process.env.DEFAULT_USER_PASSWORD || 'ChangeMe123';
+    const hashed = await bcrypt.hash(tempPassword,10);
 
-  res.json({ success:true });
+    await db.query(
+      'INSERT INTO users (username,password,role,staff_id) VALUES ($1,$2,$3,$4)',
+      [id.toLowerCase(),hashed,safeRole,id]
+    );
+
+    res.json({ success:true });
+
+  } catch(err){
+    console.error(err);
+    res.status(500).json({ success:false });
+  }
 });
 
-app.put('/api/staff/:id', requireAdmin, async (req,res)=>{
+app.put('/api/staff/:id', requireRole(['admin']), async (req,res)=>{
   const { id } = req.params;
   const { name,dept,position } = req.body;
 
@@ -146,7 +205,7 @@ app.put('/api/staff/:id', requireAdmin, async (req,res)=>{
   res.json({ success:true });
 });
 
-app.delete('/api/staff/:id', requireAdmin, async (req,res)=>{
+app.delete('/api/staff/:id', requireRole(['admin']), async (req,res)=>{
   const id = req.params.id;
 
   await db.query('DELETE FROM staff WHERE id=$1',[id]);
@@ -158,6 +217,7 @@ app.delete('/api/staff/:id', requireAdmin, async (req,res)=>{
 // ─────────────────────────────────────────
 // ATTENDANCE
 // ─────────────────────────────────────────
+
 app.get('/api/attendance', requireAuth, async (req,res)=>{
   const { date } = req.query;
 
@@ -189,7 +249,6 @@ app.get('/api/attendance/month', requireAuth, async (req,res)=>{
 
   rows.forEach(r=>{
     const dateStr = new Date(r.date).toISOString().split('T')[0];
-
     if (!map[dateStr]) map[dateStr]={};
     map[dateStr][r.staff_id]=r.status;
   });
@@ -197,7 +256,7 @@ app.get('/api/attendance/month', requireAuth, async (req,res)=>{
   res.json({ success:true, data:map });
 });
 
-app.post('/api/attendance', requireAdmin, async (req,res)=>{
+app.post('/api/attendance', requireRole(['admin','manager']), async (req,res)=>{
   const { staffId,date,status } = req.body;
 
   await db.query(`
@@ -210,7 +269,7 @@ app.post('/api/attendance', requireAdmin, async (req,res)=>{
   res.json({ success:true });
 });
 
-app.delete('/api/attendance', requireAdmin, async (req,res)=>{
+app.delete('/api/attendance', requireRole(['admin','manager']), async (req,res)=>{
   const { staffId,date } = req.body;
 
   await db.query(
@@ -224,6 +283,7 @@ app.delete('/api/attendance', requireAdmin, async (req,res)=>{
 // ─────────────────────────────────────────
 // HOLIDAYS
 // ─────────────────────────────────────────
+
 app.get('/api/holidays', requireAuth, async (req,res)=>{
   const { rows } = await db.query(
     "SELECT TO_CHAR(date, 'YYYY-MM-DD') as date, name FROM holidays ORDER BY date"
@@ -232,8 +292,7 @@ app.get('/api/holidays', requireAuth, async (req,res)=>{
   res.json({ success:true, data:rows });
 });
 
-
-app.post('/api/holidays', requireAdmin, async (req,res)=>{
+app.post('/api/holidays', requireRole(['admin']), async (req,res)=>{
   const { date,name } = req.body;
 
   await db.query(`
@@ -246,24 +305,21 @@ app.post('/api/holidays', requireAdmin, async (req,res)=>{
   res.json({ success:true });
 });
 
-app.delete('/api/holidays', requireAdmin, async (req,res)=>{
+app.delete('/api/holidays', requireRole(['admin']), async (req,res)=>{
   const { date } = req.body;
 
-  const result = await db.query(
+  await db.query(
     'DELETE FROM holidays WHERE date = $1',
     [date]
   );
 
-  console.log("Deleted rows:", result.rowCount);
-
   res.json({ success:true });
 });
-
-
 
 // ─────────────────────────────────────────
 // STATIC
 // ─────────────────────────────────────────
+
 app.get('/', (req,res)=>{
   if (!req.session.user)
     return res.sendFile(path.join(__dirname,'public','login.html'));
@@ -275,11 +331,12 @@ app.use(express.static(path.join(__dirname,'public')));
 // ─────────────────────────────────────────
 // START
 // ─────────────────────────────────────────
+
 app.listen(PORT, async ()=>{
+  await ensureAdmin();
+
   console.log('─────────────────────────────────────────');
   console.log(`Running on http://localhost:${PORT}`);
   console.log('Database: Supabase PostgreSQL');
   console.log('─────────────────────────────────────────');
-
-  await ensureAdmin();
 });
