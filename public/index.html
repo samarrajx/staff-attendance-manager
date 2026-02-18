@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Staff Attendance Manager</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/images-favicon.ico" type="image/x-icon">
+
 </head>
 
 <body>
@@ -307,7 +309,7 @@
         <h4 style="margin:0;">Attendance Distribution (Stacked)</h4>
         <button class="btn btn-outline" onclick="toggleOverviewChart()">Expand</button>
     </div>
-    <div id="overviewChartContainer" style="height:300px; transition:all 0.3s ease;">
+    <div id="overviewChartContainer" style="height:0; overflow:hidden; transition:all 0.3s ease;">
         <canvas id="overviewStackedChart"></canvas>
     </div>
 </div>

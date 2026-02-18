@@ -418,24 +418,37 @@ async function renderReport() {
         ? staffList
         : staffList.filter(s => s.dept === dept);
 
-    // ───────── CALCULATE TOTALS FOR CARDS ─────────
+    // ───────── DETERMINE LAST DAY TO COUNT (TILL DATE LOGIC) ─────────
+    const today = new Date();
+    let lastDayToCount = days;
+
+    if (y === today.getFullYear() && m === today.getMonth()) {
+        lastDayToCount = today.getDate();
+    }
+
+    // ───────── CALCULATE WORKING DAYS (ONCE) ─────────
+    let workingDays = 0;
+
+    for (let d = 1; d <= lastDayToCount; d++) {
+        const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+        const isHoliday = holidayDates.some(h => h.date === dateStr);
+        const isSun = isWeekend(y, m, d);
+
+        if (!isHoliday && !isSun) {
+            workingDays++;
+        }
+    }
+
+    // ───────── CALCULATE TOTALS ─────────
     let totalPresent = 0;
     let totalAbsent = 0;
     let totalHalf = 0;
-    let totalWorkingDays = 0;
 
     filtered.forEach(s => {
-        for (let d = 1; d <= days; d++) {
+        for (let d = 1; d <= lastDayToCount; d++) {
             const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-
-            let st = (data[dateStr] || {})[s.id];
-
-            if (!st) {
-                if (holidayDates.some(h => h.date === dateStr)) continue;
-                if (isWeekend(y, m, d)) continue;
-            }
-
-            totalWorkingDays++;
+            const st = (data[dateStr] || {})[s.id];
 
             if (st === 'present') totalPresent++;
             if (st === 'absent') totalAbsent++;
@@ -443,11 +456,13 @@ async function renderReport() {
         }
     });
 
-    const attendancePercent = totalWorkingDays
-        ? Math.round(((totalPresent + (totalHalf * 0.5)) / totalWorkingDays) * 100)
+    const totalExpectedEntries = workingDays * filtered.length;
+
+    const attendancePercent = totalExpectedEntries
+        ? Math.round(((totalPresent + (totalHalf * 0.5)) / totalExpectedEntries) * 100)
         : 0;
 
-    // ───────── RENDER DASHBOARD STYLE CARDS ─────────
+    // ───────── RENDER STAT CARDS ─────────
     document.getElementById('reportStats').innerHTML = `
         <div class="stat-card" style="--accent-color:var(--green)">
             <div class="stat-header">
@@ -472,9 +487,9 @@ async function renderReport() {
 
         <div class="stat-card" style="--accent-color:var(--text-muted)">
             <div class="stat-header">
-                <span class="stat-label">Working Entries</span>
+                <span class="stat-label">Working Days</span>
             </div>
-            <div class="stat-value">${totalWorkingDays}</div>
+            <div class="stat-value">${workingDays}</div>
         </div>
 
         <div class="stat-card" style="--accent-color:var(--accent)">
@@ -561,6 +576,7 @@ async function renderReport() {
 }
 
 
+
 async function renderMonthlyOverview() {
     const m = parseInt(document.getElementById('overviewMonth').value);
     const y = parseInt(document.getElementById('overviewYear').value);
@@ -581,9 +597,49 @@ async function renderMonthlyOverview() {
             if (data[d][s.id] === 'halfday') h++;
         });
 
-        const totalDays = getDaysInMonth(y, m); // Simple calculation, ignoring weekends for percentage usually requires more logic, keeping simple
-        // Simple Percentage for now
-        const pct = Math.round(((p + (h * 0.5)) / totalDays) * 100) || 0;
+        const todayDate = new Date();
+const selectedMonth = m;
+const selectedYear = y;
+
+let lastDayToCount;
+
+// If selected month is current month → count till today
+if (
+    selectedYear === todayDate.getFullYear() &&
+    selectedMonth === todayDate.getMonth()
+) {
+    lastDayToCount = todayDate.getDate();
+}
+// If selected month is future → no attendance yet
+else if (
+    selectedYear > todayDate.getFullYear() ||
+    (selectedYear === todayDate.getFullYear() &&
+        selectedMonth > todayDate.getMonth())
+) {
+    lastDayToCount = 0;
+}
+// Past month → full month
+else {
+    lastDayToCount = getDaysInMonth(selectedYear, selectedMonth);
+}
+
+let workingDays = 0;
+
+for (let d = 1; d <= lastDayToCount; d++) {
+    const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+    const isHoliday = holidayDates.some(h => h.date === dateStr);
+    const isSun = isWeekend(selectedYear, selectedMonth, d);
+
+    if (!isHoliday && !isSun) {
+        workingDays++;
+    }
+}
+
+const pct = workingDays
+    ? Math.round(((p + (h * 0.5)) / workingDays) * 100)
+    : 0;
+
 
         return `<tr>
       <td>${i + 1}</td>
@@ -1241,9 +1297,15 @@ function toggleOverviewChart() {
     const container = document.getElementById('overviewChartContainer');
     overviewExpanded = !overviewExpanded;
 
-    container.style.height = overviewExpanded ? '600px' : '300px';
+    if (overviewExpanded) {
+        container.style.height = '500px';
+    } else {
+        container.style.height = '0px';
+    }
 
     if (window.overviewChart) {
-        window.overviewChart.resize();
+        setTimeout(() => {
+            window.overviewChart.resize();
+        }, 300);
     }
 }
