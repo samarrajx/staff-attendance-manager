@@ -273,7 +273,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="stats-row" id="reportStats" style="grid-template-columns: repeat(5, 1fr); gap:10px;"></div>
+                <div class="stats-row" id="reportStats"></div>
                 <div class="card">
                     <div class="table-wrap">
                         <table class="month-table">
@@ -302,6 +302,16 @@
                         </div>
                     </div>
                 </div>
+                <div class="card" style="margin-bottom:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h4 style="margin:0;">Attendance Distribution (Stacked)</h4>
+        <button class="btn btn-outline" onclick="toggleOverviewChart()">Expand</button>
+    </div>
+    <div id="overviewChartContainer" style="height:300px; transition:all 0.3s ease;">
+        <canvas id="overviewStackedChart"></canvas>
+    </div>
+</div>
+
                 <div class="card">
                     <div class="table-wrap">
                         <table>
