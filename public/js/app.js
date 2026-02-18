@@ -29,6 +29,35 @@ let monthCache = {}; // { "YYYY-MM": { staffId: status } }
 let holidayDates = [];
 let userRole = 'employee';
 let pieChart = null; // Chart instance
+// ───────── THEME SYSTEM ─────────
+function loadTheme() {
+    const savedTheme = localStorage.getItem('theme');
+
+    if (savedTheme === 'light') {
+        document.body.classList.add('light');
+        document.getElementById('themeIcon').textContent = '☀️';
+    } else {
+        document.body.classList.remove('light');
+        document.getElementById('themeIcon').textContent = '🌙';
+    }
+}
+
+function toggleTheme() {
+    document.body.classList.add('theme-fade');
+
+    const isLight = document.body.classList.toggle('light');
+
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+
+    document.getElementById('themeIcon').textContent =
+        isLight ? '☀️' : '🌙';
+
+    setTimeout(() => {
+        document.body.classList.remove('theme-fade');
+    }, 250);
+}
+
+
 
 const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
 const formatDate = iso => new Date(iso).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
@@ -85,6 +114,9 @@ async function init() {
     document.getElementById('userRole').textContent = me.user.role;
     document.getElementById('userAvatar').textContent = me.user.username[0].toUpperCase();
     userRole = me.user.role;
+
+    loadTheme();
+
 
     // IMPORTANT: Role Logic
     applyRoleUI(userRole);

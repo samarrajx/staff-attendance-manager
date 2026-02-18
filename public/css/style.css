@@ -19,6 +19,23 @@
     --radius: 12px;
     --header-height: 70px;
 }
+/* ───────── LIGHT THEME ───────── */
+body.light {
+    --bg: #f5f7fb;
+    --sidebar: #ffffff;
+    --card: #ffffff;
+    --card-border: #e2e8f0;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-glow: rgba(37, 99, 235, 0.25);
+    --green: #16a34a;
+    --red: #dc2626;
+    --amber: #d97706;
+    --purple: #7c3aed;
+    --gray-status: #94a3b8;
+}
 
 * {
     margin: 0;
@@ -34,6 +51,33 @@ body {
     height: 100vh;
     display: flex;
     overflow: hidden;
+
+    transition:
+        background 0.35s ease,
+        color 0.35s ease;
+}
+/* Smooth theme transitions */
+.sidebar,
+.topbar,
+.card,
+.stat-card,
+.att-card,
+.modal,
+.status-badge,
+.nav-item {
+    transition:
+        background 0.35s ease,
+        border-color 0.35s ease,
+        color 0.35s ease,
+        box-shadow 0.35s ease;
+}
+body.theme-fade {
+    animation: themeFade 0.25s ease;
+}
+
+@keyframes themeFade {
+    from { opacity: 0.85; }
+    to { opacity: 1; }
 }
 
 /* ─── SCROLLBAR ─── */
@@ -401,12 +445,18 @@ body {
     background: transparent;
     border: 1px solid var(--card-border);
     color: var(--text);
+
+    transition: 
+        all 0.25s ease,
+        transform 0.2s ease;
 }
 
 .btn-outline:hover {
     border-color: var(--accent);
     color: var(--accent);
+    transform: translateY(-2px);
 }
+
 
 .btn-danger {
     background: rgba(248, 113, 113, 0.15);
@@ -455,7 +505,9 @@ body {
 
 .form-group input,
 .form-group select {
-    background: #111319;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    color: var(--text);
     border: 1px solid var(--card-border);
     border-radius: 8px;
     padding: 10px 14px;
