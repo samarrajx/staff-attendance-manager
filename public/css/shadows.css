@@ -1,0 +1,60 @@
+/* ─── ICONS & SHADOWS ─── */
+.input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: 14px;
+    color: var(--text-muted);
+    pointer-events: none;
+    font-size: 16px;
+    z-index: 2;
+}
+
+.input-group input,
+.input-group select {
+    padding-left: 40px !important;
+}
+
+/* Colored Shadows */
+.shadow-green {
+    box-shadow: 0 10px 30px -10px rgba(52, 211, 153, 0.3);
+}
+
+.shadow-red {
+    box-shadow: 0 10px 30px -10px rgba(248, 113, 113, 0.3);
+}
+
+.shadow-amber {
+    box-shadow: 0 10px 30px -10px rgba(251, 191, 36, 0.3);
+}
+
+.shadow-purple {
+    box-shadow: 0 10px 30px -10px rgba(167, 139, 250, 0.3);
+}
+
+.shadow-accent {
+    box-shadow: 0 10px 30px -10px var(--accent-glow);
+}
+
+/* Hover Effects */
+.card-hover:hover {
+    transform: translateY(-4px);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Sidebar Active Glow */
+.nav-item.active {
+    background: linear-gradient(90deg, rgba(79, 138, 255, 0.1), transparent);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    /* Slightly less rounded on left */
+    box-shadow: 5px 0 15px -5px var(--accent-glow);
+}
+
+.nav-item i {
+    font-size: 18px;
+}

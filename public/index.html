@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Staff Attendance Manager</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/shadows.css">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.1.0/fonts/remixicon.css" rel="stylesheet" />
     <link rel="icon" href="/images-favicon.ico" type="image/x-icon">
 
 </head>
@@ -25,45 +27,27 @@
 
         <nav class="nav-links">
             <a class="nav-item active" onclick="switchTab('dashboard')" id="nav-dashboard">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                </svg>
+                <i class="ri-dashboard-3-line"></i>
                 Dashboard
             </a>
             <a class="nav-item" onclick="switchTab('mark')" id="nav-mark">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <i class="ri-checkbox-circle-line"></i>
                 Mark Attendance
             </a>
             <a class="nav-item" onclick="switchTab('staff')" id="nav-staff">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
+                <i class="ri-group-line"></i>
                 Staff List
             </a>
             <a class="nav-item" onclick="switchTab('holiday')" id="nav-holiday">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+                <i class="ri-calendar-event-line"></i>
                 Holidays
             </a>
             <a class="nav-item" onclick="switchTab('report')" id="nav-report">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <i class="ri-file-chart-line"></i>
                 Monthly Report
             </a>
             <a class="nav-item" onclick="switchTab('overview')" id="nav-overview">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                </svg>
+                <i class="ri-pie-chart-2-line"></i>
                 Overview
             </a>
         </nav>
@@ -75,11 +59,9 @@
                     <div class="user-name" id="userName">User</div>
                     <div class="user-role" id="userRole">Employee</div>
                 </div>
-                <button onclick="logout()" style="background:none;border:none;color:var(--red);cursor:pointer;">
-                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
+                <button onclick="logout()" style="background:none;border:none;color:var(--red);cursor:pointer;"
+                    title="Logout">
+                    <i class="ri-logout-box-r-line" style="font-size:18px;"></i>
                 </button>
             </div>
         </div>
@@ -104,14 +86,12 @@
                     <div class="live-dot" id="serverDot"></div>
                     <span id="serverLabel">Checking...</span>
                 </div>
-                <button class="btn btn-outline"
-        onclick="toggleTheme()"
-        style="padding:8px 12px; font-size:12px;">
-    <span id="themeIcon">🌙</span>
-</button>
+                <button class="btn btn-outline" onclick="toggleTheme()" style="padding:8px 12px; font-size:16px;">
+                    <i class="ri-moon-line" id="themeIcon"></i>
+                </button>
 
                 <button class="btn btn-outline" onclick="openPasswordModal()" style="padding:8px 12px; font-size:12px;">
-                    Key
+                    <i class="ri-key-2-line"></i> Key
                 </button>
             </div>
         </header>
@@ -121,43 +101,27 @@
             <!-- DASHBOARD -->
             <div class="page active" id="page-dashboard">
                 <div class="stats-row">
-                    <div class="stat-card" style="--accent-color:var(--green)">
+                    <div class="stat-card shadow-green" style="--accent-color:var(--green)">
                         <div class="stat-header"><span class="stat-label">Present</span>
-                            <div class="stat-icon"><svg width="20" height="20" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M5 13l4 4L19 7" />
-                                </svg></div>
+                            <div class="stat-icon"><i class="ri-user-check-line"></i></div>
                         </div>
                         <div class="stat-value" id="stat-present">0</div>
                     </div>
-                    <div class="stat-card" style="--accent-color:var(--red)">
+                    <div class="stat-card shadow-red" style="--accent-color:var(--red)">
                         <div class="stat-header"><span class="stat-label">Absent</span>
-                            <div class="stat-icon"><svg width="20" height="20" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M6 18L18 6M6 6l12 12" />
-                                </svg></div>
+                            <div class="stat-icon"><i class="ri-user-unfollow-line"></i></div>
                         </div>
                         <div class="stat-value" id="stat-absent">0</div>
                     </div>
-                    <div class="stat-card" style="--accent-color:var(--amber)">
+                    <div class="stat-card shadow-amber" style="--accent-color:var(--amber)">
                         <div class="stat-header"><span class="stat-label">Half Day</span>
-                            <div class="stat-icon"><svg width="20" height="20" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg></div>
+                            <div class="stat-icon"><i class="ri-time-line"></i></div>
                         </div>
                         <div class="stat-value" id="stat-halfday">0</div>
                     </div>
                     <div class="stat-card" style="--accent-color:var(--text-muted)">
                         <div class="stat-header"><span class="stat-label">Unmarked</span>
-                            <div class="stat-icon"><svg width="20" height="20" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg></div>
+                            <div class="stat-icon"><i class="ri-question-mark"></i></div>
                         </div>
                         <div class="stat-value" id="stat-unmarked">0</div>
                     </div>
@@ -194,16 +158,27 @@
 
             <!-- MARK ATTENDANCE -->
             <div class="page" id="page-mark">
-                <div class="card" style="margin-bottom:20px;">
+                <div class="card shadow-accent" style="margin-bottom:20px;">
                     <div class="form-row">
-                        <div class="form-group"><label>Date</label><input type="date" id="markDate"
-                                onchange="renderMarkPage()"></div>
-                        <div class="form-group"><label>Department</label><select id="markDeptFilter"
-                                onchange="renderMarkPage()">
-                                <option value="All">All Departments</option>
-                            </select></div>
-                        <button class="btn btn-primary" onclick="markAllPresent()" style="margin-bottom:2px;">Mark All
-                            Present</button>
+                        <div class="form-group">
+                            <label>Date</label>
+                            <div class="input-group">
+                                <i class="ri-calendar-line input-icon"></i>
+                                <input type="date" id="markDate" onchange="renderMarkPage()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Department</label>
+                            <div class="input-group">
+                                <i class="ri-building-line input-icon"></i>
+                                <select id="markDeptFilter" onchange="renderMarkPage()">
+                                    <option value="All">All Departments</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="markAllPresent()" style="margin-bottom:2px;">
+                            <i class="ri-check-double-line"></i> Mark All Present
+                        </button>
                     </div>
                 </div>
                 <div id="attGrid" class="att-grid"></div>
@@ -211,21 +186,30 @@
 
             <!-- STAFF -->
             <div class="page" id="page-staff">
-                <div class="card">
+                <div class="card shadow-accent">
                     <div class="form-row" style="justify-content:space-between; align-items:flex-end;">
                         <div style="display:flex; gap:16px; flex:1; flex-wrap:wrap;">
-                            <div class="form-group"><label>Search Staff</label><input type="text" id="staffSearch"
-                                    placeholder="Name or ID..." oninput="renderStaffTable()"></div>
-                            <div class="form-group"><label>Filter Dept</label><select id="staffDeptFilter"
-                                    onchange="renderStaffTable()">
-                                    <option value="All">All</option>
-                                </select></div>
+                            <div class="form-group">
+                                <label>Search Staff</label>
+                                <div class="input-group">
+                                    <i class="ri-search-line input-icon"></i>
+                                    <input type="text" id="staffSearch" placeholder="Name or ID..."
+                                        oninput="renderStaffTable()">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Filter Dept</label>
+                                <div class="input-group">
+                                    <i class="ri-filter-3-line input-icon"></i>
+                                    <select id="staffDeptFilter" onchange="renderStaffTable()">
+                                        <option value="All">All</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        <button class="btn btn-primary" onclick="openAddStaff()"><svg width="16" height="16" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 4v16m8-8H4" />
-                            </svg> Add Staff</button>
+                        <button class="btn btn-primary" onclick="openAddStaff()">
+                            <i class="ri-user-add-line"></i> Add Staff
+                        </button>
                     </div>
                     <div class="table-wrap">
                         <table>
@@ -248,12 +232,25 @@
 
             <!-- HOLIDAYS -->
             <div class="page" id="page-holiday">
-                <div class="card" style="margin-bottom:20px;">
+                <div class="card shadow-purple" style="margin-bottom:20px;">
                     <div class="form-row">
-                        <div class="form-group"><label>Holiday Date</label><input type="date" id="holidayDate"></div>
-                        <div class="form-group"><label>Occasion Name</label><input type="text" id="holidayName"
-                                placeholder="e.g. Diwali"></div>
-                        <button class="btn btn-primary" onclick="addHoliday()">Add Holiday</button>
+                        <div class="form-group">
+                            <label>Holiday Date</label>
+                            <div class="input-group">
+                                <i class="ri-calendar-line input-icon"></i>
+                                <input type="date" id="holidayDate">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Occasion Name</label>
+                            <div class="input-group">
+                                <i class="ri-bookmark-line input-icon"></i>
+                                <input type="text" id="holidayName" placeholder="e.g. Diwali">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="addHoliday()">
+                            <i class="ri-add-line"></i> Add Holiday
+                        </button>
                     </div>
                 </div>
                 <div class="card">
@@ -265,24 +262,47 @@
 
             <!-- REPORT -->
             <div class="page" id="page-report">
-                <div class="card" style="margin-bottom:20px;">
+                <div class="card shadow-accent" style="margin-bottom:20px;">
                     <div class="form-row">
-                        <div class="form-group" style="max-width:120px;"><label>Month</label><select id="reportMonth"
-                                onchange="renderReport()"></select></div>
-                        <div class="form-group" style="max-width:100px;"><label>Year</label><select id="reportYear"
-                                onchange="renderReport()"></select></div>
-                        <div class="form-group"><label>Department</label><select id="reportDeptFilter"
-                                onchange="renderReport()">
-                                <option value="All">All</option>
-                            </select></div>
+                        <div class="form-group" style="max-width:140px;">
+                            <label>Month</label>
+                            <div class="input-group">
+                                <i class="ri-calendar-line input-icon"></i>
+                                <select id="reportMonth" onchange="renderReport()"></select>
+                            </div>
+                        </div>
+                        <div class="form-group" style="max-width:120px;">
+                            <label>Year</label>
+                            <div class="input-group">
+                                <i class="ri-history-line input-icon"></i>
+                                <select id="reportYear" onchange="renderReport()"></select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Department</label>
+                            <div class="input-group">
+                                <i class="ri-building-line input-icon"></i>
+                                <select id="reportDeptFilter" onchange="renderReport()">
+                                    <option value="All">All</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="download-buttons">
-                            <button class="btn btn-green" onclick="downloadExcel()">Excel</button>
-                            <button class="btn btn-outline" onclick="downloadPDF()">PDF</button>
+                            <button class="btn btn-green" onclick="downloadExcel()">
+                                <i class="ri-file-excel-2-line"></i> Excel
+                            </button>
+                            <button class="btn btn-outline" onclick="downloadPDF()">
+                                <i class="ri-file-pdf-line"></i> PDF
+                            </button>
                         </div>
                     </div>
                 </div>
                 <div class="stats-row" id="reportStats"></div>
-                <div class="card">
+                <div class="card shadow-accent" id="reportTableCard">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h4 style="margin:0; color:var(--accent)" id="reportTitle">Attendance Log</h4>
+                        <span style="font-size:12px; color:var(--text-muted);" id="reportSubtitle"></span>
+                    </div>
                     <div class="table-wrap">
                         <table class="month-table">
                             <thead id="reportThead"></thead>
@@ -294,33 +314,56 @@
 
             <!-- OVERVIEW -->
             <div class="page" id="page-overview">
-                <div class="card" style="margin-bottom:20px;">
+                <div class="card shadow-accent" style="margin-bottom:20px;">
                     <div class="form-row">
-                        <div class="form-group" style="max-width:120px;"><label>Month</label><select id="overviewMonth"
-                                onchange="renderMonthlyOverview()"></select></div>
-                        <div class="form-group" style="max-width:100px;"><label>Year</label><select id="overviewYear"
-                                onchange="renderMonthlyOverview()"></select></div>
-                        <div class="form-group"><label>Department</label><select id="overviewDeptFilter"
-                                onchange="renderMonthlyOverview()">
-                                <option value="All">All</option>
-                            </select></div>
+                        <div class="form-group" style="max-width:140px;">
+                            <label>Month</label>
+                            <div class="input-group">
+                                <i class="ri-calendar-line input-icon"></i>
+                                <select id="overviewMonth" onchange="renderMonthlyOverview()"></select>
+                            </div>
+                        </div>
+                        <div class="form-group" style="max-width:120px;">
+                            <label>Year</label>
+                            <div class="input-group">
+                                <i class="ri-history-line input-icon"></i>
+                                <select id="overviewYear" onchange="renderMonthlyOverview()"></select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Department</label>
+                            <div class="input-group">
+                                <i class="ri-building-line input-icon"></i>
+                                <select id="overviewDeptFilter" onchange="renderMonthlyOverview()">
+                                    <option value="All">All</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="download-buttons">
-                            <button class="btn btn-green" onclick="downloadOverviewExcel()">Excel</button>
-                            <button class="btn btn-outline" onclick="downloadOverviewPDF()">PDF</button>
+                            <button class="btn btn-green" onclick="downloadOverviewExcel()">
+                                <i class="ri-file-excel-2-line"></i> Excel
+                            </button>
+                            <button class="btn btn-outline" onclick="downloadOverviewPDF()">
+                                <i class="ri-file-pdf-line"></i> PDF
+                            </button>
                         </div>
                     </div>
                 </div>
                 <div class="card" style="margin-bottom:20px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <h4 style="margin:0;">Attendance Distribution (Stacked)</h4>
-        <button class="btn btn-outline" onclick="toggleOverviewChart()">Expand</button>
-    </div>
-    <div id="overviewChartContainer" style="height:0; overflow:hidden; transition:all 0.3s ease;">
-        <canvas id="overviewStackedChart"></canvas>
-    </div>
-</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <h4 style="margin:0;">Attendance Distribution (Stacked)</h4>
+                        <button class="btn btn-outline" onclick="toggleOverviewChart()">Expand</button>
+                    </div>
+                    <div id="overviewChartContainer" style="height:0; overflow:hidden; transition:all 0.3s ease;">
+                        <canvas id="overviewStackedChart"></canvas>
+                    </div>
+                </div>
 
-                <div class="card">
+                <div class="card shadow-accent" id="overviewTableCard">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h4 style="margin:0; color:var(--accent)" id="overviewTitle">Monthly Overview</h4>
+                        <span style="font-size:12px; color:var(--text-muted);" id="overviewSubtitle"></span>
+                    </div>
                     <div class="table-wrap">
                         <table>
                             <thead>

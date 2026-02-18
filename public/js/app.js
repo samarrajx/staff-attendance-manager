@@ -35,10 +35,10 @@ function loadTheme() {
 
     if (savedTheme === 'light') {
         document.body.classList.add('light');
-        document.getElementById('themeIcon').textContent = '☀️';
+        document.getElementById('themeIcon').className = 'ri-sun-line';
     } else {
         document.body.classList.remove('light');
-        document.getElementById('themeIcon').textContent = '🌙';
+        document.getElementById('themeIcon').className = 'ri-moon-line';
     }
 }
 
@@ -49,8 +49,8 @@ function toggleTheme() {
 
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
 
-    document.getElementById('themeIcon').textContent =
-        isLight ? '☀️' : '🌙';
+    document.getElementById('themeIcon').className =
+        isLight ? 'ri-sun-line' : 'ri-moon-line';
 
     setTimeout(() => {
         document.body.classList.remove('theme-fade');
@@ -100,8 +100,32 @@ async function api(url, method = 'GET', body = null) {
 
 async function fetchAll() {
     const [s, h] = await Promise.all([api('/api/staff'), api('/api/holidays')]);
-    if (s.success) staffList = s.data;
+    if (s.success) {
+        staffList = s.data;
+        updateAllDeptFilters();
+    }
     if (h.success) holidayDates = h.data;
+}
+
+function updateAllDeptFilters() {
+    const depts = [...new Set(staffList.map(s => s.dept).filter(Boolean))].sort();
+    const filters = ['markDeptFilter', 'staffDeptFilter', 'reportDeptFilter', 'overviewDeptFilter'];
+
+    filters.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const currentVal = el.value;
+            el.innerHTML = '<option value="All">All Departments</option>' +
+                depts.map(d => `<option value="${d}">${d}</option>`).join('');
+
+            // Restore selection if it still exists
+            if ([...el.options].some(o => o.value === currentVal)) {
+                el.value = currentVal;
+            } else {
+                el.value = 'All';
+            }
+        }
+    });
 }
 
 // ─── CORE INIT ───
@@ -125,7 +149,8 @@ async function init() {
     await fetchAll();
 
     // Default Tab
-    switchTab('dashboard');
+    const lastTab = localStorage.getItem('activeTab') || 'dashboard';
+    switchTab(lastTab);
 
     // Clock
     setInterval(() => {
@@ -167,6 +192,7 @@ function applyRoleUI(role) {
 
 // ─── NAVIGATION ───
 function switchTab(name) {
+    localStorage.setItem('activeTab', name);
     // Mobile: Close sidebar
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('mobileOverlay').classList.remove('show');
@@ -401,7 +427,10 @@ function editStaff(id) {
     document.getElementById('staffId').value = s.id;
     document.getElementById('staffDept').value = s.dept || '';
     document.getElementById('staffPosition').value = s.position || '';
-    // Note: Backend doesn't return role in staff list usually, so might need fetch. Assuming default behavior for now in v2
+
+    // NEW: Setting Role
+    document.getElementById('staffRole').value = s.role || 'employee';
+
     document.getElementById('staffModal').classList.add('show');
 }
 
@@ -450,6 +479,10 @@ async function renderReport() {
         ? staffList
         : staffList.filter(s => s.dept === dept);
 
+    // Update Title
+    document.getElementById('reportTitle').textContent = `Attendance Log: ${MONTHS[m]} ${y}`;
+    document.getElementById('reportSubtitle').textContent = dept === 'All' ? 'All Departments' : `Department: ${dept}`;
+
     // ───────── DETERMINE LAST DAY TO COUNT (TILL DATE LOGIC) ─────────
     const today = new Date();
     let lastDayToCount = days;
@@ -496,41 +529,48 @@ async function renderReport() {
 
     // ───────── RENDER STAT CARDS ─────────
     document.getElementById('reportStats').innerHTML = `
-        <div class="stat-card" style="--accent-color:var(--green)">
+        <div class="stat-card shadow-green" style="--accent-color:var(--green)">
             <div class="stat-header">
                 <span class="stat-label">Total Present</span>
+                <i class="ri-user-check-line" style="color:var(--green)"></i>
             </div>
             <div class="stat-value">${totalPresent}</div>
         </div>
 
-        <div class="stat-card" style="--accent-color:var(--red)">
+        <div class="stat-card shadow-red" style="--accent-color:var(--red)">
             <div class="stat-header">
                 <span class="stat-label">Total Absent</span>
+                <i class="ri-user-unfollow-line" style="color:var(--red)"></i>
             </div>
             <div class="stat-value">${totalAbsent}</div>
         </div>
 
-        <div class="stat-card" style="--accent-color:var(--amber)">
+        <div class="stat-card shadow-amber" style="--accent-color:var(--amber)">
             <div class="stat-header">
                 <span class="stat-label">Total Half Day</span>
+                <i class="ri-time-line" style="color:var(--amber)"></i>
             </div>
             <div class="stat-value">${totalHalf}</div>
         </div>
 
-        <div class="stat-card" style="--accent-color:var(--text-muted)">
+        <div class="stat-card shadow-accent" style="--accent-color:var(--text-muted)">
             <div class="stat-header">
                 <span class="stat-label">Working Days</span>
+                <i class="ri-calendar-check-line" style="color:var(--text-muted)"></i>
             </div>
             <div class="stat-value">${workingDays}</div>
         </div>
 
-        <div class="stat-card" style="--accent-color:var(--accent)">
+        <div class="stat-card shadow-accent" style="--accent-color:var(--accent)">
             <div class="stat-header">
                 <span class="stat-label">Attendance %</span>
+                <i class="ri-percent-line" style="color:var(--accent)"></i>
             </div>
             <div class="stat-value">${attendancePercent}%</div>
         </div>
     `;
+
+    // Update Report Table Title Placeholder if needed (adding it now to HTML)
 
     // ───────── BUILD TABLE HEADER ─────────
     let head = '<tr><th style="position:sticky;left:0;z-index:10;background:var(--card);min-width:150px">Staff</th>';
@@ -546,7 +586,7 @@ async function renderReport() {
                 ${d}
                 <br>
                 <span style="font-size:9px">
-                    ${['Su','Mo','Tu','We','Th','Fr','Sa'][wd]}
+                    ${['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][wd]}
                 </span>
             </th>`;
     }
@@ -590,13 +630,12 @@ async function renderReport() {
                 row += `
                     <td style="
                         text-align:center;
-                        background:${
-                            st === 'present'
-                                ? 'rgba(52,211,153,0.05)'
-                                : st === 'absent'
-                                ? 'rgba(248,113,113,0.05)'
-                                : ''
-                        };
+                        background:${st === 'present'
+                        ? 'rgba(52,211,153,0.05)'
+                        : st === 'absent'
+                            ? 'rgba(248,113,113,0.05)'
+                            : ''
+                    };
                         border-right:1px solid #222">
                         ${badge}
                     </td>
@@ -620,6 +659,10 @@ async function renderMonthlyOverview() {
 
     const filtered = dept === 'All' ? staffList : staffList.filter(s => s.dept === dept);
 
+    // Update Title
+    document.getElementById('overviewTitle').textContent = `Overview: ${MONTHS[m]} ${y}`;
+    document.getElementById('overviewSubtitle').textContent = dept === 'All' ? 'All Departments' : `Department: ${dept}`;
+
     document.getElementById('overviewTableBody').innerHTML = filtered.map((s, i) => {
         let p = 0, a = 0, h = 0;
 
@@ -630,47 +673,47 @@ async function renderMonthlyOverview() {
         });
 
         const todayDate = new Date();
-const selectedMonth = m;
-const selectedYear = y;
+        const selectedMonth = m;
+        const selectedYear = y;
 
-let lastDayToCount;
+        let lastDayToCount;
 
-// If selected month is current month → count till today
-if (
-    selectedYear === todayDate.getFullYear() &&
-    selectedMonth === todayDate.getMonth()
-) {
-    lastDayToCount = todayDate.getDate();
-}
-// If selected month is future → no attendance yet
-else if (
-    selectedYear > todayDate.getFullYear() ||
-    (selectedYear === todayDate.getFullYear() &&
-        selectedMonth > todayDate.getMonth())
-) {
-    lastDayToCount = 0;
-}
-// Past month → full month
-else {
-    lastDayToCount = getDaysInMonth(selectedYear, selectedMonth);
-}
+        // If selected month is current month → count till today
+        if (
+            selectedYear === todayDate.getFullYear() &&
+            selectedMonth === todayDate.getMonth()
+        ) {
+            lastDayToCount = todayDate.getDate();
+        }
+        // If selected month is future → no attendance yet
+        else if (
+            selectedYear > todayDate.getFullYear() ||
+            (selectedYear === todayDate.getFullYear() &&
+                selectedMonth > todayDate.getMonth())
+        ) {
+            lastDayToCount = 0;
+        }
+        // Past month → full month
+        else {
+            lastDayToCount = getDaysInMonth(selectedYear, selectedMonth);
+        }
 
-let workingDays = 0;
+        let workingDays = 0;
 
-for (let d = 1; d <= lastDayToCount; d++) {
-    const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        for (let d = 1; d <= lastDayToCount; d++) {
+            const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
-    const isHoliday = holidayDates.some(h => h.date === dateStr);
-    const isSun = isWeekend(selectedYear, selectedMonth, d);
+            const isHoliday = holidayDates.some(h => h.date === dateStr);
+            const isSun = isWeekend(selectedYear, selectedMonth, d);
 
-    if (!isHoliday && !isSun) {
-        workingDays++;
-    }
-}
+            if (!isHoliday && !isSun) {
+                workingDays++;
+            }
+        }
 
-const pct = workingDays
-    ? Math.round(((p + (h * 0.5)) / workingDays) * 100)
-    : 0;
+        const pct = workingDays
+            ? Math.round(((p + (h * 0.5)) / workingDays) * 100)
+            : 0;
 
 
         return `<tr>
@@ -692,85 +735,85 @@ const pct = workingDays
     }).join('');
     // ───────── STACKED BAR CHART ─────────
 
-const ctx = document.getElementById('overviewStackedChart').getContext('2d');
+    const ctx = document.getElementById('overviewStackedChart').getContext('2d');
 
-if (window.overviewChart) {
-    window.overviewChart.destroy();
-}
-
-const names = [];
-const presentData = [];
-const halfData = [];
-const absentData = [];
-
-filtered.forEach(s => {
-    let p = 0, a = 0, h = 0;
-
-    for (let d = 1; d <= getDaysInMonth(y, m); d++) {
-        const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const st = (data[dateStr] || {})[s.id];
-
-        if (st === 'present') p++;
-        if (st === 'absent') a++;
-        if (st === 'halfday') h++;
+    if (window.overviewChart) {
+        window.overviewChart.destroy();
     }
 
-    names.push(s.name);
-    presentData.push(p);
-    halfData.push(h);
-    absentData.push(a);
-});
+    const names = [];
+    const presentData = [];
+    const halfData = [];
+    const absentData = [];
 
-window.overviewChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: names,
-        datasets: [
-            {
-                label: 'Present',
-                data: presentData,
-                backgroundColor: '#34d399'
+    filtered.forEach(s => {
+        let p = 0, a = 0, h = 0;
+
+        for (let d = 1; d <= getDaysInMonth(y, m); d++) {
+            const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const st = (data[dateStr] || {})[s.id];
+
+            if (st === 'present') p++;
+            if (st === 'absent') a++;
+            if (st === 'halfday') h++;
+        }
+
+        names.push(s.name);
+        presentData.push(p);
+        halfData.push(h);
+        absentData.push(a);
+    });
+
+    window.overviewChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: names,
+            datasets: [
+                {
+                    label: 'Present',
+                    data: presentData,
+                    backgroundColor: '#34d399'
+                },
+                {
+                    label: 'Half Day',
+                    data: halfData,
+                    backgroundColor: '#fbbf24'
+                },
+                {
+                    label: 'Absent',
+                    data: absentData,
+                    backgroundColor: '#f87171'
+                }
+            ]
+        },
+        options: {
+            indexAxis: 'y', // 🔥 horizontal
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { color: '#222' },
+                    ticks: { color: '#aaa' }
+                },
+                y: {
+                    stacked: true,
+                    ticks: { color: '#ccc' }
+                }
             },
-            {
-                label: 'Half Day',
-                data: halfData,
-                backgroundColor: '#fbbf24'
-            },
-            {
-                label: 'Absent',
-                data: absentData,
-                backgroundColor: '#f87171'
-            }
-        ]
-    },
-    options: {
-        indexAxis: 'y', // 🔥 horizontal
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            x: {
-                stacked: true,
-                grid: { color: '#222' },
-                ticks: { color: '#aaa' }
-            },
-            y: {
-                stacked: true,
-                ticks: { color: '#ccc' }
+            plugins: {
+                legend: {
+                    labels: { color: '#fff' }
+                },
+                datalabels: {
+                    color: '#fff',
+                    font: { weight: 'bold', size: 10 },
+                    formatter: (value) => value > 0 ? value : ''
+                }
             }
         },
-        plugins: {
-            legend: {
-                labels: { color: '#fff' }
-            },
-            datalabels: {
-                color: '#fff',
-                font: { weight: 'bold', size: 10 },
-                formatter: (value) => value > 0 ? value : ''
-            }
-        }
-    },
-    plugins: [ChartDataLabels]
-});
+        plugins: [ChartDataLabels]
+    });
 
 }
 
@@ -820,14 +863,30 @@ async function addHoliday() {
     const date = document.getElementById('holidayDate').value;
     const name = document.getElementById('holidayName').value;
     if (date && name) {
-        await api('/api/holidays', 'POST', { date, name });
-        await fetchAll(); renderHolidays(); showToast('Holiday added');
+        const res = await api('/api/holidays', 'POST', { date, name });
+        if (res.success) {
+            await fetchAll();
+            renderHolidays();
+            showToast('Holiday added');
+            document.getElementById('holidayDate').value = '';
+            document.getElementById('holidayName').value = '';
+        } else {
+            showToast('Failed to add holiday: ' + (res.error || 'Access Denied'));
+        }
+    } else {
+        showToast('Date and Name are required');
     }
 }
 async function deleteHoliday(date) {
     if (confirm('Delete holiday?')) {
-        await api('/api/holidays', 'DELETE', { date });
-        await fetchAll(); renderHolidays();
+        const res = await api('/api/holidays', 'DELETE', { date });
+        if (res.success) {
+            await fetchAll();
+            renderHolidays();
+            showToast('Holiday deleted');
+        } else {
+            showToast('Failed to delete: ' + (res.error || 'Access Denied'));
+        }
     }
 }
 

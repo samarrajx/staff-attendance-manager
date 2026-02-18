@@ -14,5 +14,6 @@ pool.connect()
   .catch(err => console.error("DB Connection Error:", err));
 
 module.exports = {
-  query: (text, params) => pool.query(text, params)
+  query: (text, params) => pool.query(text, params),
+  pool
 };

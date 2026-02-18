@@ -138,7 +138,10 @@ app.get('/api/me', requireAuth, (req, res) => {
 
 app.get('/api/staff', requireAuth, async (req, res) => {
     const { rows } = await db.query(
-        'SELECT * FROM staff ORDER BY name ASC'
+        `SELECT s.*, u.role
+         FROM staff s
+         LEFT JOIN users u ON s.id = u.staff_id
+         ORDER BY s.name ASC`
     );
 
     if (req.session.user.role === 'employee') {
@@ -192,12 +195,21 @@ app.post('/api/staff', requireRole(['admin']), async (req, res) => {
 
 app.put('/api/staff/:id', requireRole(['admin']), async (req, res) => {
     const { id } = req.params;
-    const { name, dept, position } = req.body;
+    const { name, dept, position, role } = req.body;
 
+    // Update staff table
     await db.query(
         'UPDATE staff SET name=$1,dept=$2,position=$3 WHERE id=$4',
         [name, dept || '', position || '', id]
     );
+
+    // Update role in users table
+    if (role) {
+        await db.query(
+            'UPDATE users SET role=$1 WHERE staff_id=$2',
+            [role, id]
+        );
+    }
 
     res.json({ success: true });
 });
@@ -376,7 +388,7 @@ app.get('/api/holidays', requireAuth, async (req, res) => {
     res.json({ success: true, data: rows });
 });
 
-app.post('/api/holidays', requireRole(['admin']), async (req, res) => {
+app.post('/api/holidays', requireRole(['admin', 'manager']), async (req, res) => {
     const { date, name } = req.body;
 
     await db.query(`
@@ -389,7 +401,7 @@ app.post('/api/holidays', requireRole(['admin']), async (req, res) => {
     res.json({ success: true });
 });
 
-app.delete('/api/holidays', requireRole(['admin']), async (req, res) => {
+app.delete('/api/holidays', requireRole(['admin', 'manager']), async (req, res) => {
     const { date } = req.body;
 
     await db.query(
