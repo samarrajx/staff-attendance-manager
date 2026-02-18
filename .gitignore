@@ -1,3 +1,5 @@
 node_modules/
 attendance.db
 .env
+# Ignore the subfolder workspace
+attendance application/

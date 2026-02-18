@@ -1,116 +1,188 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Staff Attendance Login</title>
-<link rel="stylesheet" href="/css/style.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Staff Attendance Login</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(-45deg, #0f1117, #1c202b, #111319, #252a36);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            font-family: 'DM Sans', sans-serif;
+            padding: 24px;
+        }
 
-<style>
-body {
-  margin: 0;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: var(--bg);
-  font-family: 'DM Sans', sans-serif;
-  padding: 20px;
-}
+        @keyframes gradientBG {
+            0% {
+                background-position: 0% 50%;
+            }
 
-.login-card {
-  background: var(--card);
-  border: 1px solid var(--card-border);
-  padding: 30px 25px;
-  width: 100%;
-  max-width: 400px;
-  border-radius: var(--radius);
-  box-shadow: 0 0 30px var(--accent-glow);
-  text-align: center;
-}
+            50% {
+                background-position: 100% 50%;
+            }
 
-.login-card h2 {
-  margin-bottom: 8px;
-  font-size: 20px;
-}
+            100% {
+                background-position: 0% 50%;
+            }
+        }
 
-.subtitle {
-  margin-bottom: 25px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
+        .login-card {
+            background: rgba(24, 27, 36, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
 
-.login-card input {
-  width: 100%;
-  padding: 14px;
-  margin-bottom: 16px;
-  border-radius: var(--radius);
-  border: 1px solid var(--card-border);
-  background: #11131a;
-  color: var(--text);
-  font-size: 15px;
-}
+        .logos {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-bottom: 30px;
+        }
 
-.login-card button {
-  width: 100%;
-  padding: 14px;
-  border-radius: var(--radius);
-  border: none;
-  background: var(--accent);
-  color: white;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-}
+        .logos img {
+            height: 60px;
+            widht: auto;
+            object-fit: contain;
+        }
 
-.error {
-  margin-top: 12px;
-  color: var(--red);
-  font-size: 13px;
-}
-</style>
+        h2 {
+            font-family: 'Syne', sans-serif;
+            font-size: 24px;
+            margin-bottom: 8px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .subtitle {
+            margin-bottom: 32px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            background: #0f1117;
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            border: none;
+            background: linear-gradient(135deg, var(--accent) 0%, #3a7be0 100%);
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 8px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -10px var(--accent-glow);
+        }
+
+        .error {
+            margin-top: 16px;
+            color: var(--red);
+            font-size: 13px;
+            min-height: 20px;
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="login-card">
-  <h2>Staff Login</h2>
-  <div class="subtitle">Attendance Management System</div>
+    <div class="login-card">
+        <div class="logos">
+            <img src="/sanjivani.png" alt="Sanjivani">
+            <img src="/uco.png" alt="UCO">
+        </div>
 
-  <input id="username" placeholder="Staff ID or Username">
-  <input id="password" type="password" placeholder="Password">
+        <h2>Staff Login</h2>
+        <div class="subtitle">Secure Attendance Management System</div>
 
-  <button onclick="login()">Login</button>
-  <div id="error" class="error"></div>
-</div>
+        <input id="username" placeholder="Username or Staff ID" autocomplete="off">
+        <input id="password" type="password" placeholder="Password">
 
-<script>
-async function login() {
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value.trim();
-  const errorBox = document.getElementById('error');
-  errorBox.innerText = "";
+        <button onclick="login()" id="loginBtn">Login</button>
+        <div id="error" class="error"></div>
+    </div>
 
-  if (!username || !password) {
-    errorBox.innerText = "Enter credentials";
-    return;
-  }
+    <script>
+        // Allow Enter key to submit
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') login();
+        });
 
-  const res = await fetch('/api/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  });
+        async function login() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const btn = document.getElementById('loginBtn');
+            const errorBox = document.getElementById('error');
 
-  const data = await res.json();
+            errorBox.innerText = "";
+            if (!username || !password) { errorBox.innerText = "Please enter credentials"; return; }
 
-  if (data.success) {
-    window.location.href = '/';
-  } else {
-    errorBox.innerText = data.error || "Login failed";
-  }
-}
-</script>
+            // Loading state
+            btn.innerText = "Authenticating...";
+            btn.disabled = true;
+            btn.style.opacity = "0.7";
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    window.location.href = '/';
+                } else {
+                    errorBox.innerText = data.error || "Invalid username or password";
+                    btn.innerText = "Login";
+                    btn.disabled = false;
+                    btn.style.opacity = "1";
+                }
+            } catch (err) {
+                errorBox.innerText = "Connection error. Is server running?";
+                btn.innerText = "Login";
+                btn.disabled = false;
+                btn.style.opacity = "1";
+            }
+        }
+    </script>
 
 </body>
+
 </html>
