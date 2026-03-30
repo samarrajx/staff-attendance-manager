@@ -906,6 +906,7 @@ async function downloadExcel() {
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Monthly Report');
+    sheet.views = [{ state: 'frozen', xSplit: 3, ySplit: 8 }]; // Freeze first 3 columns and header
 
     const totalColumns = 3 + days + 3; // #, Name, ID + days + P A H
     const lastColumnLetter = sheet.getColumn(totalColumns).letter;
@@ -931,12 +932,18 @@ async function downloadExcel() {
         'Ph: 0612-2360350 | sanjivanivf@gmail.com | www.sanjivanivf.org';
     sheet.getCell('A4').alignment = { horizontal: 'center' };
 
-    // ───────── TITLE ─────────
+    // ───────── TITLE & LEGEND ─────────
     sheet.mergeCells(`A6:${lastColumnLetter}6`);
     sheet.getCell('A6').value =
         `MONTHLY ATTENDANCE REPORT - ${MONTHS[m]} ${y}`;
     sheet.getCell('A6').font = { size: 13, bold: true };
     sheet.getCell('A6').alignment = { horizontal: 'center' };
+
+    // Row 7: Legend
+    sheet.getCell('A7').value = 'Legend: P:Present (Green), A:Absent (Red), H:Half-Day (Yellow), S:Sunday, Hol:Holiday';
+    sheet.mergeCells(`A7:${lastColumnLetter}7`);
+    sheet.getCell('A7').font = { italic: true, size: 10 };
+    sheet.getCell('A7').alignment = { horizontal: 'center' };
 
     // ───────── HEADER ROW ─────────
     const headerRowIndex = 8;
@@ -958,13 +965,14 @@ async function downloadExcel() {
         pattern: 'solid',
         fgColor: { argb: 'FF008000' }
     };
-    headerRow.alignment = { horizontal: 'center' };
+    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    headerRow.height = 25;
 
     // ───────── DATA ROWS ─────────
     filtered.forEach((s, i) => {
 
         let p = 0, a = 0, h = 0;
-        const row = [i + 1, s.name, s.id];
+        const rowData = [i + 1, s.name, s.id];
 
         for (let d = 1; d <= days; d++) {
             const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -975,49 +983,48 @@ async function downloadExcel() {
                 else if (isWeekend(y, m, d)) st = 'weekend';
             }
 
-            if (st === 'present') {
-                row.push('P');
-                p++;
-            }
-            else if (st === 'absent') {
-                row.push('A');
-                a++;
-            }
-            else if (st === 'halfday') {
-                row.push('H');
-                h++;
-            }
-            else if (st === 'holiday') {
-                row.push('Hol');
-            }
-            else if (st === 'weekend') {
-                row.push('S');
-            }
-            else {
-                row.push('');
-            }
+            if (st === 'present') { rowData.push('P'); p++; }
+            else if (st === 'absent') { rowData.push('A'); a++; }
+            else if (st === 'halfday') { rowData.push('H'); h++; }
+            else if (st === 'holiday') { rowData.push('Hol'); }
+            else if (st === 'weekend') { rowData.push('S'); }
+            else { rowData.push(''); }
         }
 
-        row.push(p, a, h);
+        rowData.push(p, a, h);
 
-        const addedRow = sheet.addRow(row);
+        const addedRow = sheet.addRow(rowData);
+        addedRow.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // Center align day columns
-        addedRow.alignment = { horizontal: 'center' };
+        // Coloring cells
+        addedRow.eachCell((cell, colNumber) => {
+            if (colNumber > 3 && colNumber <= 3 + days) {
+                const val = cell.value;
+                if (val === 'P') cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
+                if (val === 'A') cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
+                if (val === 'H') cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } };
+                if (val === 'S' || val === 'Hol') cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E2E2' } };
+            }
+            // Style summary columns
+            if (colNumber > 3 + days) {
+                cell.font = { bold: true };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } };
+            }
+        });
     });
 
     // ───────── COLUMN WIDTHS ─────────
     sheet.getColumn(1).width = 5;
-    sheet.getColumn(2).width = 22;
+    sheet.getColumn(2).width = 25;
     sheet.getColumn(3).width = 15;
 
     for (let c = 4; c <= 3 + days; c++) {
         sheet.getColumn(c).width = 4;
     }
 
-    sheet.getColumn(4 + days).width = 6;
-    sheet.getColumn(5 + days).width = 6;
-    sheet.getColumn(6 + days).width = 6;
+    sheet.getColumn(4 + days).width = 8;
+    sheet.getColumn(5 + days).width = 8;
+    sheet.getColumn(6 + days).width = 8;
 
     // ───────── BORDERS ─────────
     sheet.eachRow((row, rowNumber) => {
@@ -1094,10 +1101,16 @@ async function downloadPDF() {
         : staffList.filter(s => s.dept === dept);
 
     doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
     doc.text("MONTHLY ATTENDANCE REPORT", pageWidth / 2, logoBottom + 45, { align: "center" });
 
     doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
     doc.text(`${MONTHS[m]} ${y} | ${dept === 'All' ? 'All Departments' : dept}`, pageWidth / 2, logoBottom + 52, { align: "center" });
+
+    // Legend line
+    doc.setFontSize(8);
+    doc.text("Legend: P:Present, A:Absent, H:Half-Day, S:Sunday, Hol:Holiday", 14, logoBottom + 58);
 
     const head = [['#', 'Employee Name', 'ID', ...Array.from({ length: days }, (_, i) => i + 1), 'P', 'A', 'H']];
 
@@ -1129,17 +1142,42 @@ async function downloadPDF() {
     doc.autoTable({
         head,
         body,
-        startY: logoBottom + 60,
-        styles: { fontSize: 6 },
+        startY: logoBottom + 62,
+        styles: { fontSize: 6, cellPadding: 1, lineWidth: 0.1, lineColor: [200, 200, 200] },
         headStyles: {
             fillColor: [0, 128, 0],
-            textColor: 255
+            textColor: 255,
+            halign: 'center',
+            valign: 'middle'
         },
-        didDrawPage: function () {
+        columnStyles: {
+            0: { cellWidth: 6, halign: 'center' },
+            1: { cellWidth: 35 },
+            2: { cellWidth: 15, halign: 'center' }
+        },
+        didParseCell: function (data) {
+            if (data.section === 'body' && data.column.index > 2) {
+                data.cell.styles.halign = 'center';
+                const val = data.cell.text[0];
+                if (val === 'P') data.cell.styles.fillColor = [200, 240, 200];
+                if (val === 'A') data.cell.styles.fillColor = [240, 200, 200];
+                if (val === 'H') data.cell.styles.fillColor = [255, 230, 200];
+                if (val === 'S' || val === 'Hol') data.cell.styles.fillColor = [235, 235, 235];
+
+                // Bold the summary columns
+                if (data.column.index >= data.row.cells.length - 3) {
+                    data.cell.styles.fontStyle = 'bold';
+                    data.cell.styles.fillColor = [245, 245, 245];
+                }
+            }
+        },
+        didDrawPage: function (data) {
+            const pageCount = doc.internal.getNumberOfPages();
             const pageHeight = doc.internal.pageSize.height;
             doc.setFontSize(8);
+            doc.setTextColor(100);
             doc.text(
-                `Generated on ${new Date().toLocaleDateString()} | SANJIVANI VIKAS FOUNDATION`,
+                `Page ${pageCount} | Generated on ${new Date().toLocaleString()} | SANJIVANI VIKAS FOUNDATION`,
                 pageWidth / 2,
                 pageHeight - 8,
                 { align: "center" }
@@ -1165,6 +1203,7 @@ async function downloadOverviewExcel() {
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Overview');
+    sheet.views = [{ state: 'frozen', ySplit: 8 }]; // Freeze header row
 
     const totalDays = getDaysInMonth(y, m);
 
@@ -1208,6 +1247,8 @@ async function downloadOverviewExcel() {
         pattern: 'solid',
         fgColor: { argb: 'FF008000' }
     };
+    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    headerRow.height = 25;
 
     // ───────── DATA ─────────
     let grandPresent = 0, grandAbsent = 0, grandHalf = 0;
@@ -1230,33 +1271,48 @@ async function downloadOverviewExcel() {
 
         const pct = ((p + (h * 0.5)) / totalDays) * 100;
 
-        sheet.addRow([i + 1, s.name, s.id, p, a, h, pct.toFixed(1) + '%']);
+        const rowData = [i + 1, s.name, s.id, p, a, h, pct.toFixed(1) + '%'];
+        const addedRow = sheet.addRow(rowData);
+        addedRow.alignment = { horizontal: 'center' };
     });
 
     // ───────── COLUMN WIDTHS ─────────
     sheet.columns = [
-        { width: 5 },
-        { width: 25 },
-        { width: 18 },
+        { width: 8 },
+        { width: 30 },
+        { width: 20 },
         { width: 12 },
         { width: 12 },
         { width: 12 },
-        { width: 15 }
+        { width: 18 }
     ];
 
     // ───────── SUMMARY ─────────
     const summaryStart = sheet.lastRow.number + 2;
 
-    sheet.getCell(`A${summaryStart}`).value = 'Summary';
-    sheet.getCell(`A${summaryStart}`).font = { bold: true };
+    sheet.getCell(`A${summaryStart}`).value = 'OVERALL SUMMARY';
+    sheet.getCell(`A${summaryStart}`).font = { bold: true, size: 12, underline: true };
+    sheet.mergeCells(`A${summaryStart}:C${summaryStart}`);
 
-    sheet.getCell(`A${summaryStart + 1}`).value = `Total Present: ${grandPresent}`;
-    sheet.getCell(`A${summaryStart + 2}`).value = `Total Absent: ${grandAbsent}`;
-    sheet.getCell(`A${summaryStart + 3}`).value = `Total Half Day: ${grandHalf}`;
+    const s1 = sheet.getRow(summaryStart + 1);
+    s1.getCell(1).value = 'Total Present:';
+    s1.getCell(2).value = grandPresent;
+    s1.getCell(1).font = { bold: true };
+
+    const s2 = sheet.getRow(summaryStart + 2);
+    s2.getCell(1).value = 'Total Absent:';
+    s2.getCell(2).value = grandAbsent;
+    s1.getCell(1).font = { bold: true };
+    s2.getCell(1).font = { bold: true };
+
+    const s3 = sheet.getRow(summaryStart + 3);
+    s3.getCell(1).value = 'Total Half Day:';
+    s3.getCell(2).value = grandHalf;
+    s3.getCell(1).font = { bold: true };
 
     // ───────── BORDERS ─────────
     sheet.eachRow((row, rowNumber) => {
-        if (rowNumber >= headerRowIndex) {
+        if (rowNumber >= headerRowIndex && rowNumber <= sheet.lastRow.number - 5) {
             row.eachCell(cell => {
                 cell.border = {
                     top: { style: 'thin' },
@@ -1376,16 +1432,28 @@ async function downloadOverviewPDF() {
         head: [['#', 'Employee Name', 'Staff ID', 'Present', 'Absent', 'Half Day', 'Attendance %']],
         body: body,
         startY: titleStart + 47,
-        styles: { fontSize: 9 },
+        styles: { fontSize: 9, cellPadding: 2, lineWidth: 0.1, lineColor: [200, 200, 200] },
         headStyles: {
             fillColor: [0, 128, 0],
-            textColor: 255
+            textColor: 255,
+            halign: 'center',
+            valign: 'middle'
         },
-        didDrawPage: function () {
+        columnStyles: {
+            0: { halign: 'center' },
+            2: { halign: 'center' },
+            3: { halign: 'center' },
+            4: { halign: 'center' },
+            5: { halign: 'center' },
+            6: { halign: 'center', fontStyle: 'bold' }
+        },
+        didDrawPage: function (data) {
+            const pageCount = doc.internal.getNumberOfPages();
             const pageHeight = doc.internal.pageSize.height;
             doc.setFontSize(8);
+            doc.setTextColor(100);
             doc.text(
-                `Generated on ${new Date().toLocaleDateString()} | SANJIVANI VIKAS FOUNDATION`,
+                `Page ${pageCount} | Generated on ${new Date().toLocaleString()} | SANJIVANI VIKAS FOUNDATION`,
                 105,
                 pageHeight - 8,
                 { align: "center" }
