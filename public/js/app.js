@@ -947,18 +947,15 @@ async function downloadExcel() {
 
     // ───────── HEADER ROW ─────────
     const headerRowIndex = 8;
-
     const headers = ['#', 'Employee Name', 'ID'];
 
     for (let d = 1; d <= days; d++) {
         headers.push(d);
     }
-
     headers.push('P', 'A', 'H');
 
-    sheet.addRow(headers);
-
     const headerRow = sheet.getRow(headerRowIndex);
+    headerRow.values = headers;
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     headerRow.fill = {
         type: 'pattern',
@@ -969,8 +966,8 @@ async function downloadExcel() {
     headerRow.height = 25;
 
     // ───────── DATA ROWS ─────────
+    let currentDataRow = 9;
     filtered.forEach((s, i) => {
-
         let p = 0, a = 0, h = 0;
         const rowData = [i + 1, s.name, s.id];
 
@@ -993,11 +990,15 @@ async function downloadExcel() {
 
         rowData.push(p, a, h);
 
-        const addedRow = sheet.addRow(rowData);
-        addedRow.alignment = { horizontal: 'center', vertical: 'middle' };
+        const addedRow = sheet.getRow(currentDataRow++);
+        addedRow.values = rowData;
+        addedRow.alignment = { vertical: 'middle' }; // Default alignment
 
         // Coloring cells
         addedRow.eachCell((cell, colNumber) => {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            if (colNumber === 2) cell.alignment.horizontal = 'left'; // Name left-aligned
+
             if (colNumber > 3 && colNumber <= 3 + days) {
                 const val = cell.value;
                 if (val === 'P') cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
@@ -1238,9 +1239,9 @@ async function downloadOverviewExcel() {
     // ───────── TABLE HEADER ─────────
     const headerRowIndex = 8;
     const headers = ['#', 'Employee Name', 'Staff ID', 'Present', 'Absent', 'Half Day', 'Attendance %'];
-    sheet.addRow(headers);
-
+    
     const headerRow = sheet.getRow(headerRowIndex);
+    headerRow.values = headers;
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     headerRow.fill = {
         type: 'pattern',
@@ -1250,12 +1251,33 @@ async function downloadOverviewExcel() {
     headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
     headerRow.height = 25;
 
+    // ───────── CALC WORKING DAYS ─────────
+    const today = new Date();
+    let lastDayToCount;
+    if (y === today.getFullYear() && m === today.getMonth()) {
+        lastDayToCount = today.getDate();
+    } else if (y > today.getFullYear() || (y === today.getFullYear() && m > today.getMonth())) {
+        lastDayToCount = 0;
+    } else {
+        lastDayToCount = totalDays;
+    }
+
+    let workingDays = 0;
+    for (let d = 1; d <= lastDayToCount; d++) {
+        const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        if (!isWeekend(y, m, d) && !holidayDates.some(h => h.date === dateStr)) {
+            workingDays++;
+        }
+    }
+
     // ───────── DATA ─────────
     let grandPresent = 0, grandAbsent = 0, grandHalf = 0;
+    let currentDataRow = 9;
 
     filtered.forEach((s, i) => {
         let p = 0, a = 0, h = 0;
 
+        // Note: For overview, we count all attendance in the month
         for (let d = 1; d <= totalDays; d++) {
             const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const st = (data[dateStr] || {})[s.id];
@@ -1269,11 +1291,26 @@ async function downloadOverviewExcel() {
         grandAbsent += a;
         grandHalf += h;
 
-        const pct = ((p + (h * 0.5)) / totalDays) * 100;
+        const score = p + (h * 0.5);
+        const pctNum = workingDays > 0 ? (score / workingDays) * 100 : 0;
+        const pctStr = pctNum.toFixed(1) + '%';
 
-        const rowData = [i + 1, s.name, s.id, p, a, h, pct.toFixed(1) + '%'];
-        const addedRow = sheet.addRow(rowData);
-        addedRow.alignment = { horizontal: 'center' };
+        const rowValues = [i + 1, s.name, s.id, p, a, h, pctStr];
+        const addedRow = sheet.getRow(currentDataRow++);
+        addedRow.values = rowValues;
+        
+        addedRow.eachCell((cell, colNumber) => {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            if (colNumber === 2) cell.alignment.horizontal = 'left';
+
+            // Color the percentage cell
+            if (colNumber === 7) {
+                cell.font = { bold: true };
+                if (pctNum >= 75) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
+                else if (pctNum >= 50) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } };
+                else if (workingDays > 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
+            }
+        });
     });
 
     // ───────── COLUMN WIDTHS ─────────
@@ -1288,7 +1325,7 @@ async function downloadOverviewExcel() {
     ];
 
     // ───────── SUMMARY ─────────
-    const summaryStart = sheet.lastRow.number + 2;
+    const summaryStart = currentDataRow + 1;
 
     sheet.getCell(`A${summaryStart}`).value = 'OVERALL SUMMARY';
     sheet.getCell(`A${summaryStart}`).font = { bold: true, size: 12, underline: true };
@@ -1302,7 +1339,6 @@ async function downloadOverviewExcel() {
     const s2 = sheet.getRow(summaryStart + 2);
     s2.getCell(1).value = 'Total Absent:';
     s2.getCell(2).value = grandAbsent;
-    s1.getCell(1).font = { bold: true };
     s2.getCell(1).font = { bold: true };
 
     const s3 = sheet.getRow(summaryStart + 3);
@@ -1312,7 +1348,7 @@ async function downloadOverviewExcel() {
 
     // ───────── BORDERS ─────────
     sheet.eachRow((row, rowNumber) => {
-        if (rowNumber >= headerRowIndex && rowNumber <= sheet.lastRow.number - 5) {
+        if (rowNumber >= headerRowIndex && rowNumber < summaryStart - 1) {
             row.eachCell(cell => {
                 cell.border = {
                     top: { style: 'thin' },
@@ -1389,6 +1425,25 @@ async function downloadOverviewPDF() {
 
     const totalDays = getDaysInMonth(y, m);
 
+    // ───────── CALC WORKING DAYS ─────────
+    const today = new Date();
+    let lastDayToCount;
+    if (y === today.getFullYear() && m === today.getMonth()) {
+        lastDayToCount = today.getDate();
+    } else if (y > today.getFullYear() || (y === today.getFullYear() && m > today.getMonth())) {
+        lastDayToCount = 0;
+    } else {
+        lastDayToCount = totalDays;
+    }
+
+    let workingDays = 0;
+    for (let d = 1; d <= lastDayToCount; d++) {
+        const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        if (!isWeekend(y, m, d) && !holidayDates.some(h => h.date === dateStr)) {
+            workingDays++;
+        }
+    }
+
     let grandPresent = 0, grandAbsent = 0, grandHalf = 0;
 
     const body = filtered.map((s, i) => {
@@ -1407,9 +1462,11 @@ async function downloadOverviewPDF() {
         grandAbsent += a;
         grandHalf += h;
 
-        const pct = ((p + (h * 0.5)) / totalDays) * 100;
+        const score = p + (h * 0.5);
+        const pctNum = workingDays > 0 ? (score / workingDays) * 100 : 0;
+        const pctStr = pctNum.toFixed(1) + '%';
 
-        return [i + 1, s.name, s.id, p, a, h, pct.toFixed(1) + '%'];
+        return [i + 1, s.name, s.id, p, a, h, pctStr];
     });
 
     const titleStart = logoBottom + 42;
@@ -1418,7 +1475,7 @@ async function downloadOverviewPDF() {
     doc.text("MONTHLY ATTENDANCE OVERVIEW", 105, titleStart, { align: "center" });
 
     doc.setFontSize(10);
-    doc.text(`${MONTHS[m]} ${y} | ${dept === 'All' ? 'All Departments' : dept}`, 105, titleStart + 7, { align: "center" });
+    doc.text(`${MONTHS[m]} ${y} | ${dept === 'All' ? 'All Departments' : dept} (Working Days: ${workingDays})`, 105, titleStart + 7, { align: "center" });
 
     doc.setFontSize(11);
     doc.text("Summary", 14, titleStart + 20);
@@ -1441,11 +1498,21 @@ async function downloadOverviewPDF() {
         },
         columnStyles: {
             0: { halign: 'center' },
+            1: { halign: 'left' },
             2: { halign: 'center' },
             3: { halign: 'center' },
             4: { halign: 'center' },
             5: { halign: 'center' },
-            6: { halign: 'center', fontStyle: 'bold' }
+            6: { halign: 'center' }
+        },
+        didParseCell: function (data) {
+            if (data.section === 'body' && data.column.index === 6) {
+                const valStr = data.cell.text[0];
+                const valNum = parseFloat(valStr);
+                if (valNum >= 75) data.cell.styles.textColor = [0, 100, 0];
+                else if (valNum < 50 && workingDays > 0) data.cell.styles.textColor = [150, 0, 0];
+                data.cell.styles.fontStyle = 'bold';
+            }
         },
         didDrawPage: function (data) {
             const pageCount = doc.internal.getNumberOfPages();
