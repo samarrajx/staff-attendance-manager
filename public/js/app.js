@@ -968,7 +968,12 @@ async function downloadExcel() {
 
         for (let d = 1; d <= days; d++) {
             const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            const st = (data[dateStr] || {})[s.id];
+            let st = (data[dateStr] || {})[s.id];
+
+            if (!st) {
+                if (holidayDates.some(h => h.date === dateStr)) st = 'holiday';
+                else if (isWeekend(y, m, d)) st = 'weekend';
+            }
 
             if (st === 'present') {
                 row.push('P');
@@ -981,6 +986,12 @@ async function downloadExcel() {
             else if (st === 'halfday') {
                 row.push('H');
                 h++;
+            }
+            else if (st === 'holiday') {
+                row.push('Hol');
+            }
+            else if (st === 'weekend') {
+                row.push('S');
             }
             else {
                 row.push('');
@@ -1096,11 +1107,18 @@ async function downloadPDF() {
 
         for (let d = 1; d <= days; d++) {
             const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            const st = (data[dateStr] || {})[s.id];
+            let st = (data[dateStr] || {})[s.id];
+
+            if (!st) {
+                if (holidayDates.some(h => h.date === dateStr)) st = 'holiday';
+                else if (isWeekend(y, m, d)) st = 'weekend';
+            }
 
             if (st === 'present') { row.push('P'); p++; }
             else if (st === 'absent') { row.push('A'); a++; }
             else if (st === 'halfday') { row.push('H'); h++; }
+            else if (st === 'holiday') { row.push('Hol'); }
+            else if (st === 'weekend') { row.push('S'); }
             else row.push('');
         }
 
