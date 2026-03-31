@@ -194,24 +194,60 @@ app.post('/api/staff', requireRole(['admin']), async (req, res) => {
 });
 
 app.put('/api/staff/:id', requireRole(['admin']), async (req, res) => {
-    const { id } = req.params;
-    const { name, dept, position, role } = req.body;
+    const { id } = req.params; // Current ID
+    const { id: newId, name, dept, position, role } = req.body;
 
-    // Update staff table
-    await db.query(
-        'UPDATE staff SET name=$1,dept=$2,position=$3 WHERE id=$4',
-        [name, dept || '', position || '', id]
-    );
+    const client = await db.pool.connect();
 
-    // Update role in users table
-    if (role) {
-        await db.query(
-            'UPDATE users SET role=$1 WHERE staff_id=$2',
-            [role, id]
-        );
+    try {
+        await client.query('BEGIN');
+
+        // 1. Check if ID changed
+        if (newId && newId !== id) {
+            // Check if new ID already exists
+            const { rows } = await client.query('SELECT id FROM staff WHERE id = $1', [newId]);
+            if (rows.length > 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ success: false, error: 'New Staff ID already exists' });
+            }
+
+            // Update staff table ID
+            await client.query('UPDATE staff SET id=$1, name=$2, dept=$3, position=$4 WHERE id=$5',
+                [newId, name, dept || '', position || '', id]);
+
+            // Update users table (staff_id and username)
+            await client.query('UPDATE users SET staff_id=$1, username=$2, role=$3 WHERE staff_id=$4',
+                [newId, newId.toLowerCase(), role, id]);
+
+            // Update attendance table (Optional because of ON UPDATE CASCADE, but kept for clarity)
+            await client.query('UPDATE attendance SET staff_id=$1 WHERE staff_id=$2',
+                [newId, id]);
+
+        } else {
+            // No ID change, just regular update
+            await client.query(
+                'UPDATE staff SET name=$1, dept=$2, position=$3 WHERE id=$4',
+                [name, dept || '', position || '', id]
+            );
+
+            if (role) {
+                await client.query(
+                    'UPDATE users SET role=$1 WHERE staff_id=$2',
+                    [role, id]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Update staff error:", err);
+        res.status(500).json({ success: false, error: 'Database error' });
+    } finally {
+        client.release();
     }
-
-    res.json({ success: true });
 });
 
 app.delete('/api/staff/:id', requireRole(['admin']), async (req, res) => {

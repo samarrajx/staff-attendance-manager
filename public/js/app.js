@@ -407,12 +407,22 @@ async function saveStaff() {
     if (!id || !name) { showToast('Name and ID required'); return; }
 
     if (editId) {
-        await api('/api/staff/' + editId, 'PUT', { name, dept, position: pos, role });
-        showToast('Staff Updated');
+        const res = await api('/api/staff/' + editId, 'PUT', { id, name, dept, position: pos, role });
+        if (res.success) {
+            showToast('Staff Updated');
+        } else {
+            showToast(res.error || 'Update failed');
+            return;
+        }
     } else {
         // NEW: Passing role here
-        await api('/api/staff', 'POST', { id, name, dept, position: pos, role });
-        showToast('Staff Added');
+        const res = await api('/api/staff', 'POST', { id, name, dept, position: pos, role });
+        if (res.success) {
+            showToast('Staff Added');
+        } else {
+            showToast('ID already exists or error');
+            return;
+        }
     }
     closeStaffModal();
     renderStaffTable();
@@ -1239,7 +1249,7 @@ async function downloadOverviewExcel() {
     // ───────── TABLE HEADER ─────────
     const headerRowIndex = 8;
     const headers = ['#', 'Employee Name', 'Staff ID', 'Present', 'Absent', 'Half Day', 'Attendance %'];
-    
+
     const headerRow = sheet.getRow(headerRowIndex);
     headerRow.values = headers;
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -1298,7 +1308,7 @@ async function downloadOverviewExcel() {
         const rowValues = [i + 1, s.name, s.id, p, a, h, pctStr];
         const addedRow = sheet.getRow(currentDataRow++);
         addedRow.values = rowValues;
-        
+
         addedRow.eachCell((cell, colNumber) => {
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
             if (colNumber === 2) cell.alignment.horizontal = 'left';
